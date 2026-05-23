@@ -1,0 +1,50 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Builds
+dist/
+build/
+*.tsbuildinfo
+
+# Env
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*.swo
+
+# Tooling
+.turbo/
+coverage/
+.nyc_output/
+
+# Tmp
+.tmp/
+.tmp_*
+*.tmp
+
+# Internal materials (notas internas, materiais da casa não destinados ao repo público)
+pasta inicial/
+
+# Docker volumes locais
+.docker-data/
