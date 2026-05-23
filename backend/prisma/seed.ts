@@ -35,7 +35,7 @@ const sampleAlunos = [
   {
     nome: 'Daniel Lima',
     email: 'daniel.lima@example.com',
-    cpf: '70283457001',
+    cpf: '70283457007',
     telefone: '41987651122',
     plano: 'basic',
     status: 'cancelado',
@@ -59,7 +59,7 @@ const sampleAlunos = [
   {
     nome: 'Gabriela Rocha',
     email: 'gabriela.rocha@example.com',
-    cpf: '04094445116',
+    cpf: '04094445102',
     telefone: '71977665544',
     plano: 'premium',
     status: 'ativo',
@@ -67,7 +67,7 @@ const sampleAlunos = [
   {
     nome: 'Henrique Dias',
     email: 'henrique.dias@example.com',
-    cpf: '46625325831',
+    cpf: '46625325821',
     telefone: '81966554433',
     plano: 'basic',
     status: 'pausado',
