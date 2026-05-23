@@ -1,0 +1,63 @@
+// Prisma schema — Escola do Breno (case admin)
+// Decisões registradas em ADRs/pre-kick-off/0005-modelagem-aluno.md
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================================================
+// Admin — usuário do painel. Apenas um (semeado). Ver ADR 0003.
+// =============================================================================
+model Admin {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("admin")
+}
+
+// =============================================================================
+// Aluno — entidade principal do domínio. Ver ADR 0005.
+// PII: cpf, email, telefone — tratamento em ADR 0006 e 0007.
+// Soft delete via deletedAt. Ver ADR 0008.
+// =============================================================================
+model Aluno {
+  id        String      @id @default(uuid()) @db.Uuid
+  nome      String      @db.VarChar(120)
+  email     String      @unique
+  cpf       String      @unique @db.VarChar(11)
+  telefone  String      @db.VarChar(11)
+  plano     Plano
+  status    StatusAluno @default(ativo)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+  deletedAt DateTime?
+
+  @@index([deletedAt])
+  @@index([status])
+  @@index([plano])
+  @@map("aluno")
+}
+
+enum Plano {
+  basic
+  premium
+
+  @@map("plano")
+}
+
+enum StatusAluno {
+  ativo
+  pausado
+  cancelado
+
+  @@map("status_aluno")
+}
