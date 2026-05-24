@@ -12,7 +12,7 @@ docker compose up
 
 Sobe Postgres, backend e frontend. Aguarde os healthchecks e acesse:
 
-- **Frontend**: http://localhost:5173
+- **Frontend**: http://localhost:5174
 - **Backend API**: http://localhost:3000/api
 
 Para começar do zero (recriar volumes):
