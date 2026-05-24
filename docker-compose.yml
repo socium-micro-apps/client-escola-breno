@@ -32,7 +32,7 @@ services:
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
       PORT: 3000
       NODE_ENV: ${NODE_ENV:-development}
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5174}
       LOG_FORMAT: ${LOG_FORMAT:-text}
       SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@escolabreno.com.br}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-admin123}
@@ -43,14 +43,14 @@ services:
     build:
       context: .
       dockerfile: frontend/Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:3000/api}
     container_name: escola-frontend
     restart: unless-stopped
     depends_on:
       - backend
-    environment:
-      VITE_API_URL: ${VITE_API_URL:-http://localhost:3000/api}
     ports:
-      - "5173:5173"
+      - "5174:80"
 
 volumes:
   postgres_data:
