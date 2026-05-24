@@ -1,0 +1,83 @@
+# =============================================================================
+# Production stack — escola-breno (Socium-SF)
+# =============================================================================
+# Deploy: /opt/socium-sf/clients/escola-breno/docker-compose.yml
+# IMAGE_TAG é atualizado pelo CI no .env a cada deploy.
+#
+# Subdomínios:
+#   web:  https://escola-breno.app.socium-sf.com
+#   api:  https://api.escola-breno.app.socium-sf.com
+#
+# Para dev local, use: docker compose -f docker-compose.dev.yml up
+# =============================================================================
+
+services:
+  web:
+    image: ghcr.io/socium-micro-apps/client-escola-breno-web:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    networks:
+      - traefik-public
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik-public"
+      - "traefik.http.routers.escola-breno.rule=Host(`escola-breno.app.socium-sf.com`)"
+      - "traefik.http.routers.escola-breno.entrypoints=websecure"
+      - "traefik.http.routers.escola-breno.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.escola-breno.middlewares=security-headers@docker"
+      - "traefik.http.services.escola-breno.loadbalancer.server.port=80"
+
+  api:
+    image: ghcr.io/socium-micro-apps/client-escola-breno-api:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      PORT: 3000
+      NODE_ENV: production
+      FRONTEND_URL: https://escola-breno.app.socium-sf.com
+      LOG_FORMAT: json
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD}
+    networks:
+      - traefik-public
+      - internal
+    depends_on:
+      postgres:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik-public"
+      - "traefik.http.routers.escola-breno-api.rule=Host(`api.escola-breno.app.socium-sf.com`)"
+      - "traefik.http.routers.escola-breno-api.entrypoints=websecure"
+      - "traefik.http.routers.escola-breno-api.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.escola-breno-api.middlewares=security-headers@docker"
+      - "traefik.http.services.escola-breno-api.loadbalancer.server.port=3000"
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    networks:
+      - internal
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  traefik-public:
+    external: true
+  internal:
+    name: escola-breno_internal
+    driver: bridge
+
+volumes:
+  db_data:
+    name: escola-breno_db_data

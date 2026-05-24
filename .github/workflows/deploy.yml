@@ -1,0 +1,128 @@
+# =============================================================================
+# Production deploy pipeline — escola-breno
+# =============================================================================
+# A cada push em main:
+#   1) Builda 2 imagens (web + api), publica em ghcr.io
+#   2) Garante /opt/socium-sf/clients/escola-breno/ na VPS
+#   3) Sincroniza docker-compose.yml e .env.example (repo é fonte da verdade)
+#   4) Cria .env na primeira vez (operador edita uma vez com segredos reais)
+#   5) Atualiza IMAGE_TAG e roda docker compose pull + up -d
+# =============================================================================
+
+name: Build and Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  ORG: socium-micro-apps
+  SLUG: escola-breno
+  WEB_API_URL: https://api.escola-breno.app.socium-sf.com/api
+  CLIENT_DIR: /opt/socium-sf/clients/escola-breno
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      sha: ${{ steps.meta.outputs.sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set SHA short
+        id: meta
+        run: echo "sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push web (frontend)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./frontend/Dockerfile
+          push: true
+          build-args: |
+            VITE_API_URL=${{ env.WEB_API_URL }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.ORG }}/client-${{ env.SLUG }}-web:latest
+            ${{ env.REGISTRY }}/${{ env.ORG }}/client-${{ env.SLUG }}-web:sha-${{ steps.meta.outputs.sha }}
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+
+      - name: Build and push api (backend)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./backend/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.ORG }}/client-${{ env.SLUG }}-api:latest
+            ${{ env.REGISTRY }}/${{ env.ORG }}/client-${{ env.SLUG }}-api:sha-${{ steps.meta.outputs.sha }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure client dir exists on VPS
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: mkdir -p ${{ env.CLIENT_DIR }}
+
+      - name: Sync stack files to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "docker-compose.prod.yml,.env.example.prod"
+          target: ${{ env.CLIENT_DIR }}
+
+      - name: Deploy
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -e
+            cd ${{ env.CLIENT_DIR }}
+            # Convenção Socium-SF: docker-compose.yml + .env na pasta do cliente.
+            # No repo, prod usa nomes sufixados (.prod) para não conflitar com o
+            # docker-compose.yml de dev local (avaliação do brief: 'docker compose up').
+            mv -f docker-compose.prod.yml docker-compose.yml
+            mv -f .env.example.prod .env.example
+            # Primeira vez: cria .env a partir do .env.example.
+            # Subsequentes: preserva edições do operador (segredos reais).
+            if [ ! -f .env ]; then
+              cp .env.example .env
+              chmod 600 .env
+              echo "First deploy: .env created from .env.example."
+              echo "ATENÇÃO: edite POSTGRES_PASSWORD, JWT_SECRET, SEED_ADMIN_PASSWORD antes de validar."
+            fi
+            # Atualiza apenas IMAGE_TAG (não toca em outros valores do .env)
+            sed -i "s/^IMAGE_TAG=.*/IMAGE_TAG=sha-${{ needs.build-and-push.outputs.sha }}/" .env
+            docker compose pull
+            docker compose up -d --remove-orphans
+            docker image prune -f
