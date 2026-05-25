@@ -1,11 +1,14 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { Toaster } from 'sonner';
+import { AcceptInvitePage } from '@/pages/AcceptInvitePage';
+import { AdminsPage } from '@/pages/AdminsPage';
 import { AlunoDetailPage } from '@/pages/AlunoDetailPage';
 import { AlunosPage } from '@/pages/AlunosPage';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { LgpdRequestsPage } from '@/pages/LgpdRequestsPage';
 import { LoginAuditPage } from '@/pages/LoginAuditPage';
 import { LoginPage } from '@/pages/LoginPage';
+import { RetentionPage } from '@/pages/RetentionPage';
 import { useAuth } from '@/lib/auth';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -26,6 +29,7 @@ export function App() {
     <>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/admin-convite/:token" element={<AcceptInvitePage />} />
         <Route
           path="/dashboard"
           element={
@@ -51,6 +55,14 @@ export function App() {
           }
         />
         <Route
+          path="/retention"
+          element={
+            <RequireAuth>
+              <RetentionPage />
+            </RequireAuth>
+          }
+        />
+        <Route
           path="/lgpd/requests"
           element={
             <RequireAuth>
@@ -63,6 +75,14 @@ export function App() {
           element={
             <RequireAuth>
               <LoginAuditPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/admins"
+          element={
+            <RequireAuth>
+              <AdminsPage />
             </RequireAuth>
           }
         />

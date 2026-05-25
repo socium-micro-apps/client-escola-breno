@@ -1,5 +1,14 @@
+import { ROLE_LABEL } from '@escola/shared';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { LayoutDashboard, LogOut, ScrollText, ShieldCheck, Users } from 'lucide-react';
+import {
+  LayoutDashboard,
+  LogOut,
+  ScrollText,
+  ShieldCheck,
+  TrendingUp,
+  Users,
+  UsersRound,
+} from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { api } from '@/lib/api';
@@ -7,7 +16,7 @@ import { cn } from '@/lib/utils';
 import { Button } from './ui/Button';
 
 export function Topbar() {
-  const { admin, refetch } = useAuth();
+  const { admin, refetch, can } = useAuth();
   const queryClient = useQueryClient();
   const location = useLocation();
 
@@ -20,11 +29,18 @@ export function Topbar() {
   });
 
   const navItems = [
-    { to: '/dashboard', label: 'dashboard', icon: LayoutDashboard },
-    { to: '/alunos', label: 'alunos', icon: Users },
-    { to: '/lgpd/requests', label: 'LGPD', icon: ShieldCheck },
-    { to: '/audit/login', label: 'auditoria', icon: ScrollText },
-  ];
+    { to: '/dashboard', label: 'dashboard', icon: LayoutDashboard, show: true },
+    { to: '/alunos', label: 'alunos', icon: Users, show: true },
+    { to: '/retention', label: 'retenção', icon: TrendingUp, show: true },
+    { to: '/lgpd/requests', label: 'LGPD', icon: ShieldCheck, show: true },
+    { to: '/audit/login', label: 'auditoria', icon: ScrollText, show: true },
+    {
+      to: '/admins',
+      label: 'admins',
+      icon: UsersRound,
+      show: can('super_admin'),
+    },
+  ].filter((n) => n.show);
 
   return (
     <header className="border-b border-neutral-200 bg-white">
@@ -63,7 +79,12 @@ export function Topbar() {
         </div>
 
         <div className="flex items-center gap-3">
-          {admin && <span className="hidden text-sm text-neutral-600 sm:inline">{admin.email}</span>}
+          {admin && (
+            <div className="hidden text-right sm:block">
+              <div className="text-sm text-neutral-700">{admin.email}</div>
+              <div className="text-xs text-neutral-500">{ROLE_LABEL[admin.role]}</div>
+            </div>
+          )}
           <Button variant="ghost" size="sm" onClick={() => logout.mutate()} disabled={logout.isPending}>
             <LogOut className="h-4 w-4" />
             sair

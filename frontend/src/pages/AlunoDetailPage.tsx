@@ -1,7 +1,10 @@
 import {
   CANAL_LABEL,
+  ORIGEM_LABEL,
   TRILHA_LABEL,
+  type AlunoChecklistItemDTO,
   type CanalContato,
+  type OrigemCanal,
   type Plano,
   type StatusAluno,
   type Trilha,
@@ -16,7 +19,6 @@ import {
   PhoneCall,
   ShieldOff,
   Trash2,
-  UserCircle,
   XCircle,
 } from 'lucide-react';
 import { useState } from 'react';
@@ -26,6 +28,7 @@ import { AlunoFormDialog } from '@/components/AlunoFormDialog';
 import { ConfirmDeleteDialog } from '@/components/ConfirmDeleteDialog';
 import { RegisterContactDialog } from '@/components/RegisterContactDialog';
 import { Topbar } from '@/components/Topbar';
+import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import {
@@ -64,6 +67,20 @@ interface AlunoDetailDTO {
   ultimoContatoNota: string | null;
   diasDesdeUltimoContato: number | null;
   diasParaVencimento: number;
+  // v4
+  avatarUrl: string | null;
+  origemCanal: OrigemCanal | null;
+  origemDetalhe: string | null;
+  cidade: string | null;
+  profissao: string | null;
+  aniversario: string | null;
+  totalLogins: number;
+  ultimoLoginEm: string | null;
+  diasDesdeUltimoLogin: number | null;
+  diasNaPlataforma: number;
+  progressoItensCompletos: string[];
+  progressoChecklist: AlunoChecklistItemDTO[];
+  progressoPct: number;
   anonimizado: boolean;
   createdAt: string;
   updatedAt: string;
@@ -147,6 +164,24 @@ export function AlunoDetailPage() {
     },
   });
 
+  const toggleChecklistItem = useMutation({
+    mutationFn: async (itemKey: string) => {
+      const current = detailQuery.data!.progressoItensCompletos;
+      const next = current.includes(itemKey)
+        ? current.filter((k) => k !== itemKey)
+        : [...current, itemKey];
+      return api.patch(`/alunos/${id}`, { progressoItensCompletos: next });
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['alunos', id] });
+      await queryClient.invalidateQueries({ queryKey: ['alunos'] });
+      await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    },
+    onError: (err) => {
+      toast.error(err instanceof ApiError ? err.message : 'algo deu errado');
+    },
+  });
+
   const anonymizeMutation = useMutation({
     mutationFn: () => api.post(`/alunos/${id}/anonymize`),
     onSuccess: async () => {
@@ -223,18 +258,26 @@ export function AlunoDetailPage() {
         <div className="rounded-lg border border-neutral-200 bg-white p-6">
           <div className="flex items-start justify-between">
             <div className="flex items-start gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-orange/10 text-brand-orange">
-                <UserCircle className="h-7 w-7" />
-              </div>
+              <Avatar url={aluno.avatarUrl} alt={aluno.nome} size="lg" />
               <div>
                 <h1 className="font-display text-2xl font-bold text-brand-deep">{aluno.nome}</h1>
                 <p className="text-sm text-neutral-500">{aluno.email}</p>
+                {(aluno.cidade || aluno.profissao) && (
+                  <p className="text-xs text-neutral-500">
+                    {aluno.cidade}
+                    {aluno.cidade && aluno.profissao && ' · '}
+                    {aluno.profissao}
+                  </p>
+                )}
                 <div className="mt-3 flex flex-wrap gap-2">
                   <Badge variant={aluno.status as 'ativo' | 'pausado' | 'cancelado'}>
                     {aluno.status}
                   </Badge>
                   <Badge variant="trilha">{TRILHA_LABEL[aluno.trilha]}</Badge>
                   <Badge variant="plano">plano {aluno.plano}</Badge>
+                  {aluno.origemCanal && (
+                    <Badge variant="default">via {ORIGEM_LABEL[aluno.origemCanal]}</Badge>
+                  )}
                   {isDeleted && <Badge variant="cancelado">deletado</Badge>}
                   {isAnonymized && <Badge variant="anonimizado">anonimizado</Badge>}
                 </div>
@@ -339,7 +382,101 @@ export function AlunoDetailPage() {
               <dt className="text-xs font-medium uppercase text-neutral-500">Valor anual</dt>
               <dd className="mt-1 text-sm text-neutral-700">{aluno.valorAnualFormatado}</dd>
             </div>
+            {aluno.origemDetalhe && (
+              <div className="sm:col-span-2">
+                <dt className="text-xs font-medium uppercase text-neutral-500">Detalhe da origem</dt>
+                <dd className="mt-1 text-sm text-neutral-700">{aluno.origemDetalhe}</dd>
+              </div>
+            )}
+            {aluno.aniversario && (
+              <div>
+                <dt className="text-xs font-medium uppercase text-neutral-500">Aniversário</dt>
+                <dd className="mt-1 text-sm text-neutral-700">
+                  {new Date(aluno.aniversario).toLocaleDateString('pt-BR')}
+                </dd>
+              </div>
+            )}
           </dl>
+        </div>
+
+        {/* Engajamento no produto + progresso da trilha */}
+        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div className="rounded-lg border border-neutral-200 bg-white p-6">
+            <h2 className="mb-4 font-display text-lg font-semibold lowercase text-brand-deep">
+              uso do produto
+            </h2>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <div className="text-xs font-medium uppercase text-neutral-500">Total logins</div>
+                <div className="mt-1 font-display text-2xl font-bold text-brand-deep">
+                  {aluno.totalLogins}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs font-medium uppercase text-neutral-500">Último login</div>
+                <div className="mt-1 text-sm text-neutral-700">
+                  {aluno.diasDesdeUltimoLogin === null
+                    ? 'nunca'
+                    : aluno.diasDesdeUltimoLogin === 0
+                      ? 'hoje'
+                      : `há ${aluno.diasDesdeUltimoLogin}d`}
+                </div>
+              </div>
+              <div>
+                <div className="text-xs font-medium uppercase text-neutral-500">Dias na plataforma</div>
+                <div className="mt-1 text-sm text-neutral-700">{aluno.diasNaPlataforma}d</div>
+              </div>
+            </div>
+            <p className="mt-4 text-xs text-neutral-400">
+              dados alimentados por integração futura (Pagar.me / Circle / app mobile). Hoje
+              populados via seed.
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-neutral-200 bg-white p-6">
+            <div className="mb-4 flex items-baseline justify-between">
+              <h2 className="font-display text-lg font-semibold lowercase text-brand-deep">
+                progresso da trilha
+              </h2>
+              <span className="text-sm text-neutral-500">{aluno.progressoPct}% concluído</span>
+            </div>
+            <div className="mb-4 h-2 overflow-hidden rounded-full bg-neutral-100">
+              <div
+                className="h-full rounded-full bg-brand-orange transition-all"
+                style={{ width: `${aluno.progressoPct}%` }}
+              />
+            </div>
+            <ul className="space-y-2">
+              {aluno.progressoChecklist.map((item) => (
+                <li key={item.key}>
+                  <label
+                    className={`flex cursor-pointer items-start gap-2 text-sm ${
+                      isDeleted || isAnonymized ? 'cursor-not-allowed opacity-60' : ''
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={item.completo}
+                      disabled={
+                        isDeleted ||
+                        isAnonymized ||
+                        toggleChecklistItem.isPending
+                      }
+                      onChange={() => toggleChecklistItem.mutate(item.key)}
+                      className="mt-0.5 h-4 w-4 cursor-pointer rounded border-neutral-300 text-brand-orange focus:ring-brand-orange disabled:cursor-not-allowed"
+                    />
+                    <span
+                      className={
+                        item.completo ? 'text-neutral-700 line-through' : 'text-neutral-700'
+                      }
+                    >
+                      {item.label}
+                    </span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
 
         {/* Consent + último contato */}

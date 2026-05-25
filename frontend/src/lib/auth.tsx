@@ -1,3 +1,4 @@
+import type { AdminRole } from '@escola/shared';
 import { useQuery } from '@tanstack/react-query';
 import { createContext, useContext, type ReactNode } from 'react';
 import { ApiError, api } from './api';
@@ -5,6 +6,7 @@ import { ApiError, api } from './api';
 export interface Admin {
   id: string;
   email: string;
+  role: AdminRole;
 }
 
 interface AuthContextValue {
@@ -12,6 +14,7 @@ interface AuthContextValue {
   isLoading: boolean;
   isAuthenticated: boolean;
   refetch: () => void;
+  can: (...allowed: AdminRole[]) => boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -31,13 +34,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     staleTime: 5 * 60 * 1000,
   });
 
+  const admin = data ?? undefined;
+
   return (
     <AuthContext.Provider
       value={{
-        admin: data ?? undefined,
+        admin,
         isLoading,
         isAuthenticated: Boolean(data),
         refetch,
+        can: (...allowed) => Boolean(admin && allowed.includes(admin.role)),
       }}
     >
       {children}

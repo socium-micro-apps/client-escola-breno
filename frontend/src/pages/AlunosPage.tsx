@@ -1,4 +1,10 @@
-import { TRILHA_LABEL, type Plano, type StatusAluno, type Trilha } from '@escola/shared';
+import {
+  ORIGEM_LABEL,
+  TRILHA_LABEL,
+  type Plano,
+  type StatusAluno,
+  type Trilha,
+} from '@escola/shared';
 import { useQuery } from '@tanstack/react-query';
 import { Edit2, Eye, EyeOff, Info, Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
@@ -6,6 +12,7 @@ import { Link } from 'react-router-dom';
 import { AlunoFormDialog } from '@/components/AlunoFormDialog';
 import { ConfirmDeleteDialog } from '@/components/ConfirmDeleteDialog';
 import { Topbar } from '@/components/Topbar';
+import { Avatar } from '@/components/ui/Avatar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -36,6 +43,18 @@ interface AlunoDTO {
   consentEmail: boolean;
   consentWhatsapp: boolean;
   consentOfertas: boolean;
+  avatarUrl: string | null;
+  origemCanal: import('@escola/shared').OrigemCanal | null;
+  origemDetalhe: string | null;
+  cidade: string | null;
+  profissao: string | null;
+  aniversario: string | null;
+  totalLogins: number;
+  ultimoLoginEm: string | null;
+  diasDesdeUltimoLogin: number | null;
+  diasNaPlataforma: number;
+  progressoItensCompletos: string[];
+  progressoPct: number;
   diasParaVencimento: number;
   anonimizado: boolean;
   createdAt: string;
@@ -235,14 +254,29 @@ export function AlunosPage() {
                 const isRevealed = revealedIds.has(aluno.id);
                 return (
                   <tr key={aluno.id} className="hover:bg-neutral-50">
-                    <td className="px-4 py-3 font-medium text-brand-deep">
-                      <Link to={`/alunos/${aluno.id}`} className="hover:underline">
-                        {aluno.nome}
+                    <td className="px-4 py-3">
+                      <Link
+                        to={`/alunos/${aluno.id}`}
+                        className="flex items-center gap-3 hover:text-brand-orange"
+                      >
+                        <Avatar url={aluno.avatarUrl} alt={aluno.nome} size="md" />
+                        <div>
+                          <div className="font-medium text-brand-deep">{aluno.nome}</div>
+                          <div className="text-xs text-neutral-500">
+                            {aluno.cidade ?? '—'}
+                            {aluno.profissao && ` · ${aluno.profissao}`}
+                          </div>
+                        </div>
                       </Link>
                     </td>
                     <td className="px-4 py-3 text-neutral-700">
                       <div>{aluno.email}</div>
                       <div className="text-xs text-neutral-500">{aluno.telefoneFormatado}</div>
+                      {aluno.origemCanal && (
+                        <div className="mt-1 text-xs text-neutral-400">
+                          via {ORIGEM_LABEL[aluno.origemCanal]}
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-3 font-mono text-neutral-700">
                       <div className="flex items-center gap-2">
@@ -260,6 +294,15 @@ export function AlunosPage() {
                     </td>
                     <td className="px-4 py-3">
                       <Badge variant="trilha">{TRILHA_LABEL[aluno.trilha]}</Badge>
+                      <div className="mt-1.5 flex items-center gap-2">
+                        <div className="h-1 w-16 overflow-hidden rounded-full bg-neutral-100">
+                          <div
+                            className="h-full rounded-full bg-brand-orange"
+                            style={{ width: `${aluno.progressoPct}%` }}
+                          />
+                        </div>
+                        <span className="text-xs text-neutral-500">{aluno.progressoPct}%</span>
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <Badge variant={aluno.status as 'ativo' | 'pausado' | 'cancelado'}>
