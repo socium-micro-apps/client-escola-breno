@@ -46,5 +46,10 @@ coverage/
 # Internal materials (notas internas, materiais da casa não destinados ao repo público)
 pasta inicial/
 
+# Deploy pipeline overlay: contém INFRA-CONTEXT com IP da VPS, paths
+# internos (/opt/socium-sf/clients/...) e usuário SSH. Útil pra setup,
+# não pertence ao repo público da app.
+prod-deploy-pipeline/
+
 # Docker volumes locais
 .docker-data/
