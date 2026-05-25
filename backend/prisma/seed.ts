@@ -266,13 +266,30 @@ async function main() {
   console.log(`  ✓ Admin: ${admin.email} (${admin.role})`);
 
   for (const aluno of sampleAlunos) {
-    await prisma.aluno.upsert({
-      where: { cpf: aluno.cpf },
-      update: {},
-      create: aluno,
-    });
+    const existing = await prisma.aluno.findUnique({ where: { cpf: aluno.cpf } });
+    if (!existing) {
+      await prisma.aluno.create({ data: aluno });
+      continue;
+    }
+    // Hidrata apenas campos NULL/zero — preserva edições da operação.
+    // Útil para popular dados v4 em registros criados em versões anteriores.
+    const updateData: Record<string, unknown> = {};
+    if (!existing.avatarUrl) updateData.avatarUrl = aluno.avatarUrl;
+    if (!existing.origemCanal) updateData.origemCanal = aluno.origemCanal;
+    if (!existing.origemDetalhe) updateData.origemDetalhe = aluno.origemDetalhe;
+    if (!existing.cidade) updateData.cidade = aluno.cidade;
+    if (!existing.profissao) updateData.profissao = aluno.profissao;
+    if (!existing.aniversario) updateData.aniversario = aluno.aniversario;
+    if (existing.totalLogins === 0) updateData.totalLogins = aluno.totalLogins;
+    if (!existing.ultimoLoginEm) updateData.ultimoLoginEm = aluno.ultimoLoginEm;
+    if (existing.progressoItensCompletos.length === 0) {
+      updateData.progressoItensCompletos = aluno.progressoItensCompletos;
+    }
+    if (Object.keys(updateData).length > 0) {
+      await prisma.aluno.update({ where: { cpf: aluno.cpf }, data: updateData });
+    }
   }
-  console.log(`  ✓ Alunos: ${sampleAlunos.length} registros`);
+  console.log(`  ✓ Alunos: ${sampleAlunos.length} registros (sincronizados)`);
 
   const existingRequests = await prisma.lgpdRequest.count();
   if (existingRequests === 0) {
