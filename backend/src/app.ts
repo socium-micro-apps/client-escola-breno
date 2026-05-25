@@ -8,6 +8,7 @@ import pinoHttp from 'pino-http';
 import { env } from './env.js';
 import { logger } from './logger.js';
 import { errorHandler, notFoundHandler } from './middleware/error.js';
+import adminsRouter from './routes/admins.js';
 import alunosRouter from './routes/alunos.js';
 import auditRouter from './routes/audit.js';
 import authRouter from './routes/auth.js';
@@ -75,6 +76,7 @@ export function createApp() {
   app.use('/api/dashboard', dashboardRouter);
   app.use('/api/audit', auditRouter);
   app.use('/api/lgpd', lgpdRouter);
+  app.use('/api/admins', adminsRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

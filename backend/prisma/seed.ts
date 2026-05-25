@@ -13,6 +13,12 @@ function plusDays(days: number, from: Date = new Date()): Date {
   return d;
 }
 
+function avatarFor(seed: string): string {
+  // DiceBear avataaars — deterministico por seed (email)
+  const encoded = encodeURIComponent(seed);
+  return `https://api.dicebear.com/9.x/avataaars/svg?seed=${encoded}&backgroundColor=ffd5b5,ffdfbf,ffe6c7,fff0d6,c0aede`;
+}
+
 const today = new Date();
 
 const sampleAlunos = [
@@ -23,8 +29,14 @@ const sampleAlunos = [
     telefone: '11987654321',
     status: 'ativo' as const,
     trilha: 'construindo_patrimonio' as const,
-    dataInicio: plusDays(-200, today),
-    dataVencimento: plusDays(165, today),
+    progressoItensCompletos: [
+      'perfil_investidor',
+      'primeiro_aporte',
+      'diversificou',
+      'rebalanceou',
+    ],
+    dataInicio: plusDays(-340, today),
+    dataVencimento: plusDays(25, today),
     renovacaoAutomatica: true,
     valorAnualCentavos: 29880,
     consentEmail: true,
@@ -33,6 +45,14 @@ const sampleAlunos = [
     ultimoContatoEm: plusDays(-15, today),
     ultimoContatoCanal: 'whatsapp' as const,
     ultimoContatoNota: 'pediu mais conteudo sobre investimentos',
+    avatarUrl: avatarFor('ana.souza@example.com'),
+    origemCanal: 'indicacao' as const,
+    origemDetalhe: 'indicada por Carla Mendes',
+    cidade: 'São Paulo - SP',
+    profissao: 'gerente de marketing',
+    aniversario: new Date('1989-03-12'),
+    totalLogins: 142,
+    ultimoLoginEm: plusDays(-1, today),
   },
   {
     nome: 'Bruno Costa',
@@ -41,6 +61,7 @@ const sampleAlunos = [
     telefone: '21976543210',
     status: 'ativo' as const,
     trilha: 'fazendo_sobrar_dinheiro' as const,
+    progressoItensCompletos: ['orcamento_zerado', 'corte_assinaturas'],
     dataInicio: plusDays(-90, today),
     dataVencimento: plusDays(275, today),
     renovacaoAutomatica: true,
@@ -50,6 +71,14 @@ const sampleAlunos = [
     consentOfertas: false,
     ultimoContatoEm: plusDays(-3, today),
     ultimoContatoCanal: 'email' as const,
+    avatarUrl: avatarFor('bruno.costa@example.com'),
+    origemCanal: 'instagram' as const,
+    origemDetalhe: 'campanha "saia das dívidas em 2026"',
+    cidade: 'Rio de Janeiro - RJ',
+    profissao: 'desenvolvedor',
+    aniversario: new Date('1992-07-22'),
+    totalLogins: 38,
+    ultimoLoginEm: plusDays(-2, today),
   },
   {
     nome: 'Carla Mendes',
@@ -58,16 +87,25 @@ const sampleAlunos = [
     telefone: '31998877665',
     status: 'pausado' as const,
     trilha: 'montando_reserva' as const,
-    dataInicio: plusDays(-150, today),
-    dataVencimento: plusDays(215, today),
+    progressoItensCompletos: ['meta_definida', 'conta_separada', 'aporte_mensal'],
+    dataInicio: plusDays(-450, today),
+    dataVencimento: plusDays(-85, today),
     renovacaoAutomatica: false,
-    valorAnualCentavos: 19800, // promo antiga
+    valorAnualCentavos: 19800,
     consentEmail: true,
     consentWhatsapp: true,
     consentOfertas: false,
     ultimoContatoEm: plusDays(-45, today),
     ultimoContatoCanal: 'telefone' as const,
     ultimoContatoNota: 'pediu pausa por 3 meses por motivo financeiro',
+    avatarUrl: avatarFor('carla.mendes@example.com'),
+    origemCanal: 'youtube' as const,
+    origemDetalhe: 'vídeo "como montar reserva de emergência"',
+    cidade: 'Belo Horizonte - MG',
+    profissao: 'professora',
+    aniversario: new Date('1985-11-04'),
+    totalLogins: 287,
+    ultimoLoginEm: plusDays(-30, today),
   },
   {
     nome: 'Daniel Lima',
@@ -76,6 +114,7 @@ const sampleAlunos = [
     telefone: '41987651122',
     status: 'cancelado' as const,
     trilha: 'saindo_da_divida' as const,
+    progressoItensCompletos: ['mapeou_dividas'],
     dataInicio: plusDays(-300, today),
     dataVencimento: plusDays(-30, today),
     renovacaoAutomatica: false,
@@ -85,6 +124,14 @@ const sampleAlunos = [
     consentOfertas: false,
     ultimoContatoEm: plusDays(-30, today),
     ultimoContatoCanal: 'whatsapp' as const,
+    avatarUrl: avatarFor('daniel.lima@example.com'),
+    origemCanal: 'anuncio_pago' as const,
+    origemDetalhe: 'Google Ads — "sair das dívidas"',
+    cidade: 'Curitiba - PR',
+    profissao: 'autônomo',
+    aniversario: new Date('1995-02-18'),
+    totalLogins: 6,
+    ultimoLoginEm: plusDays(-95, today),
   },
   {
     nome: 'Eduarda Pereira',
@@ -93,6 +140,7 @@ const sampleAlunos = [
     telefone: '51999887766',
     status: 'ativo' as const,
     trilha: 'construindo_patrimonio' as const,
+    progressoItensCompletos: ['perfil_investidor', 'primeiro_aporte'],
     dataInicio: plusDays(-30, today),
     dataVencimento: plusDays(335, today),
     renovacaoAutomatica: true,
@@ -100,6 +148,14 @@ const sampleAlunos = [
     consentEmail: true,
     consentWhatsapp: true,
     consentOfertas: true,
+    avatarUrl: avatarFor('eduarda.pereira@example.com'),
+    origemCanal: 'evento_presencial' as const,
+    origemDetalhe: 'evento "diálogos sobre dinheiro" — SP, abril/26',
+    cidade: 'Porto Alegre - RS',
+    profissao: 'enfermeira',
+    aniversario: new Date('1988-09-30'),
+    totalLogins: 22,
+    ultimoLoginEm: plusDays(0, today),
   },
   {
     nome: 'Fernando Alves',
@@ -108,6 +164,7 @@ const sampleAlunos = [
     telefone: '61988776655',
     status: 'ativo' as const,
     trilha: 'saindo_da_divida' as const,
+    progressoItensCompletos: [],
     dataInicio: plusDays(-10, today),
     dataVencimento: plusDays(355, today),
     renovacaoAutomatica: true,
@@ -115,6 +172,14 @@ const sampleAlunos = [
     consentEmail: true,
     consentWhatsapp: true,
     consentOfertas: false,
+    avatarUrl: avatarFor('fernando.alves@example.com'),
+    origemCanal: 'busca_organica' as const,
+    origemDetalhe: 'buscou "planilha controle financeiro" no Google',
+    cidade: 'Brasília - DF',
+    profissao: 'servidor público',
+    aniversario: new Date('1980-06-15'),
+    totalLogins: 4,
+    ultimoLoginEm: plusDays(-1, today),
   },
   {
     nome: 'Gabriela Rocha',
@@ -123,6 +188,7 @@ const sampleAlunos = [
     telefone: '71977665544',
     status: 'ativo' as const,
     trilha: 'fazendo_sobrar_dinheiro' as const,
+    progressoItensCompletos: ['orcamento_zerado', 'corte_assinaturas', 'sobrou_10pct'],
     dataInicio: plusDays(-60, today),
     dataVencimento: plusDays(15, today),
     renovacaoAutomatica: true,
@@ -133,6 +199,14 @@ const sampleAlunos = [
     ultimoContatoEm: plusDays(-70, today),
     ultimoContatoCanal: 'presencial' as const,
     ultimoContatoNota: 'encontro presencial no evento',
+    avatarUrl: avatarFor('gabriela.rocha@example.com'),
+    origemCanal: 'indicacao' as const,
+    origemDetalhe: 'indicada por Ana Souza',
+    cidade: 'Salvador - BA',
+    profissao: 'designer',
+    aniversario: new Date('1993-12-08'),
+    totalLogins: 87,
+    ultimoLoginEm: plusDays(-1, today),
   },
   {
     nome: 'Henrique Dias',
@@ -141,6 +215,7 @@ const sampleAlunos = [
     telefone: '81966554433',
     status: 'pausado' as const,
     trilha: 'montando_reserva' as const,
+    progressoItensCompletos: ['meta_definida', 'conta_separada'],
     dataInicio: plusDays(-180, today),
     dataVencimento: plusDays(185, today),
     renovacaoAutomatica: true,
@@ -148,6 +223,14 @@ const sampleAlunos = [
     consentEmail: true,
     consentWhatsapp: false,
     consentOfertas: false,
+    avatarUrl: avatarFor('henrique.dias@example.com'),
+    origemCanal: 'instagram' as const,
+    origemDetalhe: 'reel "3 contas pra você ter agora"',
+    cidade: 'Recife - PE',
+    profissao: 'comerciante',
+    aniversario: new Date('1978-04-25'),
+    totalLogins: 54,
+    ultimoLoginEm: plusDays(-12, today),
   },
 ] as const;
 
@@ -174,16 +257,14 @@ const sampleLgpdRequests = [
 async function main() {
   console.log('🌱 Seeding database...');
 
-  // Admin (idempotente)
   const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, BCRYPT_COST);
   const admin = await prisma.admin.upsert({
     where: { email: ADMIN_EMAIL },
-    update: { passwordHash },
-    create: { email: ADMIN_EMAIL, passwordHash },
+    update: { passwordHash, role: 'super_admin' },
+    create: { email: ADMIN_EMAIL, passwordHash, role: 'super_admin' },
   });
-  console.log(`  ✓ Admin: ${admin.email}`);
+  console.log(`  ✓ Admin: ${admin.email} (${admin.role})`);
 
-  // Alunos (idempotente — só cria, preserva edições)
   for (const aluno of sampleAlunos) {
     await prisma.aluno.upsert({
       where: { cpf: aluno.cpf },
@@ -193,13 +274,12 @@ async function main() {
   }
   console.log(`  ✓ Alunos: ${sampleAlunos.length} registros`);
 
-  // LGPD requests (só cria se zero existem — não duplicar a cada deploy)
   const existingRequests = await prisma.lgpdRequest.count();
   if (existingRequests === 0) {
     for (const req of sampleLgpdRequests) {
       await prisma.lgpdRequest.create({ data: req });
     }
-    console.log(`  ✓ LGPD requests: ${sampleLgpdRequests.length} registros (seed inicial)`);
+    console.log(`  ✓ LGPD requests: ${sampleLgpdRequests.length} (seed inicial)`);
   } else {
     console.log(`  ✓ LGPD requests: ${existingRequests} já existem, skip`);
   }

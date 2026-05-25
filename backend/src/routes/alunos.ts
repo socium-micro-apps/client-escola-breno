@@ -15,6 +15,7 @@ import { Prisma } from '@prisma/client';
 import { Router } from 'express';
 import { z } from 'zod';
 import { requireAuth } from '../middleware/auth.js';
+import { requireRole } from '../middleware/role.js';
 import { validate } from '../middleware/validate.js';
 import { prisma } from '../prisma.js';
 import { recordAudit, toAlunoSnapshot } from '../services/audit.js';
@@ -81,7 +82,7 @@ router.get('/', validate(listAlunosQuerySchema, 'query'), async (req, res) => {
 // =============================================================================
 // POST /api/alunos — criar aluno
 // =============================================================================
-router.post('/', validate(createAlunoSchema), async (req, res) => {
+router.post('/', requireRole('super_admin', 'operacao'), validate(createAlunoSchema), async (req, res) => {
   const input = req.body as CreateAlunoInput;
   const adminId = req.user!.id;
 
@@ -105,6 +106,13 @@ router.post('/', validate(createAlunoSchema), async (req, res) => {
         consentEmail: input.consentEmail ?? true,
         consentWhatsapp: input.consentWhatsapp ?? true,
         consentOfertas: input.consentOfertas ?? false,
+        avatarUrl: input.avatarUrl ?? null,
+        origemCanal: input.origemCanal ?? null,
+        origemDetalhe: input.origemDetalhe ?? null,
+        cidade: input.cidade ?? null,
+        profissao: input.profissao ?? null,
+        aniversario: input.aniversario ?? null,
+        progressoItensCompletos: input.progressoItensCompletos ?? [],
       },
     });
 
@@ -181,7 +189,7 @@ router.get('/:id/history', validate(idParam, 'params'), async (req, res) => {
 // =============================================================================
 // PATCH /api/alunos/:id — atualização parcial
 // =============================================================================
-router.patch('/:id', validate(idParam, 'params'), validate(updateAlunoSchema), async (req, res) => {
+router.patch('/:id', requireRole('super_admin', 'operacao'), validate(idParam, 'params'), validate(updateAlunoSchema), async (req, res) => {
   const { id } = req.params as unknown as { id: string };
   const input = req.body as UpdateAlunoInput;
   const adminId = req.user!.id;
@@ -227,7 +235,7 @@ router.patch('/:id', validate(idParam, 'params'), validate(updateAlunoSchema), a
 // =============================================================================
 // DELETE /api/alunos/:id — soft delete (ADR 0008)
 // =============================================================================
-router.delete('/:id', validate(idParam, 'params'), async (req, res) => {
+router.delete('/:id', requireRole('super_admin', 'operacao'), validate(idParam, 'params'), async (req, res) => {
   const { id } = req.params as unknown as { id: string };
   const adminId = req.user!.id;
 
@@ -257,7 +265,7 @@ router.delete('/:id', validate(idParam, 'params'), async (req, res) => {
 // =============================================================================
 // POST /api/alunos/:id/restore — reverte soft delete (ADR 0012)
 // =============================================================================
-router.post('/:id/restore', validate(idParam, 'params'), async (req, res) => {
+router.post('/:id/restore', requireRole('super_admin', 'operacao'), validate(idParam, 'params'), async (req, res) => {
   const { id } = req.params as unknown as { id: string };
   const adminId = req.user!.id;
 
@@ -293,6 +301,7 @@ router.post('/:id/restore', validate(idParam, 'params'), async (req, res) => {
 // =============================================================================
 router.post(
   '/:id/contact',
+  requireRole('super_admin', 'operacao'),
   validate(idParam, 'params'),
   validate(registerContactSchema),
   async (req, res) => {
@@ -339,7 +348,7 @@ router.post(
 // POST /api/alunos/:id/anonymize — LGPD: direito ao esquecimento (ADR 0012)
 // Zera PII, preserva linha + timestamps + audit trail
 // =============================================================================
-router.post('/:id/anonymize', validate(idParam, 'params'), async (req, res) => {
+router.post('/:id/anonymize', requireRole('super_admin'), validate(idParam, 'params'), async (req, res) => {
   const { id } = req.params as unknown as { id: string };
   const adminId = req.user!.id;
 
@@ -388,7 +397,7 @@ router.post('/:id/anonymize', validate(idParam, 'params'), async (req, res) => {
 // GET /api/alunos/:id/export — LGPD: portabilidade (ADR 0012)
 // Devolve todos os dados do aluno em formato JSON
 // =============================================================================
-router.get('/:id/export', validate(idParam, 'params'), async (req, res) => {
+router.get('/:id/export', requireRole('super_admin'), validate(idParam, 'params'), async (req, res) => {
   const { id } = req.params as unknown as { id: string };
 
   const aluno = await prisma.aluno.findUnique({

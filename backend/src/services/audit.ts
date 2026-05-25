@@ -1,9 +1,8 @@
-// Serviço de auditoria — registra mutações em Aluno. ADR 0012 + 0013.
-//
+// Serviço de auditoria — registra mutações em Aluno. ADR 0012 + 0013 + 0014.
 // Snapshots gravados com PII MASCARADA — audit não vira vazamento secundário.
 
 import type { Prisma, PrismaClient } from '@prisma/client';
-import { maskCpf, type CanalContato } from '@escola/shared';
+import { maskCpf, type CanalContato, type OrigemCanal } from '@escola/shared';
 
 type AuditAction = 'create' | 'update' | 'delete' | 'restore' | 'anonymize' | 'contact';
 
@@ -25,6 +24,11 @@ interface AlunoSnapshot {
   consentOfertas: boolean;
   ultimoContatoEm: string | null;
   ultimoContatoCanal: CanalContato | null;
+  origemCanal: OrigemCanal | null;
+  cidade: string | null;
+  profissao: string | null;
+  totalLogins: number;
+  progressoItensCompletos: string[];
   anonymizedAt: string | null;
   deletedAt: string | null;
 }
@@ -47,6 +51,11 @@ export function toAlunoSnapshot(aluno: {
   consentOfertas: boolean;
   ultimoContatoEm: Date | null;
   ultimoContatoCanal: CanalContato | null;
+  origemCanal: OrigemCanal | null;
+  cidade: string | null;
+  profissao: string | null;
+  totalLogins: number;
+  progressoItensCompletos: string[];
   anonymizedAt: Date | null;
   deletedAt: Date | null;
 }): AlunoSnapshot {
@@ -68,6 +77,11 @@ export function toAlunoSnapshot(aluno: {
     consentOfertas: aluno.consentOfertas,
     ultimoContatoEm: aluno.ultimoContatoEm?.toISOString() ?? null,
     ultimoContatoCanal: aluno.ultimoContatoCanal,
+    origemCanal: aluno.origemCanal,
+    cidade: aluno.cidade,
+    profissao: aluno.profissao,
+    totalLogins: aluno.totalLogins,
+    progressoItensCompletos: aluno.progressoItensCompletos,
     anonymizedAt: aluno.anonymizedAt?.toISOString() ?? null,
     deletedAt: aluno.deletedAt?.toISOString() ?? null,
   };

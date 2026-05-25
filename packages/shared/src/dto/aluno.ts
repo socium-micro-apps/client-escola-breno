@@ -1,9 +1,18 @@
 // DTOs de saída — camada entre o Prisma model e a resposta da API.
-// Garante que PII não vaza cru. ADR 0006 + 0012 + 0013.
+// ADR 0006 + 0012 + 0013 + 0014.
 
 import { formatTelefone } from '../validators/telefone.js';
 import { formatCpf, maskCpf } from '../validators/cpf.js';
-import type { CanalContato, Plano, StatusAluno, Trilha } from '../schemas/aluno.js';
+import {
+  TRILHA_CHECKLISTS,
+  trilhaProgressPct,
+  type CanalContato,
+  type OrigemCanal,
+  type Plano,
+  type StatusAluno,
+  type Trilha,
+  type TrilhaItem,
+} from '../schemas/aluno.js';
 
 export interface AlunoRecord {
   id: string;
@@ -25,10 +34,25 @@ export interface AlunoRecord {
   ultimoContatoEm: Date | null;
   ultimoContatoCanal: CanalContato | null;
   ultimoContatoNota: string | null;
+  // v4
+  avatarUrl: string | null;
+  origemCanal: OrigemCanal | null;
+  origemDetalhe: string | null;
+  cidade: string | null;
+  profissao: string | null;
+  aniversario: Date | null;
+  totalLogins: number;
+  ultimoLoginEm: Date | null;
+  progressoItensCompletos: string[];
+  // LGPD + lifecycle
   anonymizedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
+}
+
+export interface AlunoChecklistItemDTO extends TrilhaItem {
+  completo: boolean;
 }
 
 export interface AlunoDTO {
@@ -45,7 +69,7 @@ export interface AlunoDTO {
   dataVencimento: string;
   renovacaoAutomatica: boolean;
   valorAnualCentavos: number;
-  valorAnualFormatado: string;       // "R$ 298,80"
+  valorAnualFormatado: string;
   consentEmail: boolean;
   consentWhatsapp: boolean;
   consentOfertas: boolean;
@@ -53,8 +77,21 @@ export interface AlunoDTO {
   ultimoContatoEm: string | null;
   ultimoContatoCanal: CanalContato | null;
   ultimoContatoNota: string | null;
-  diasDesdeUltimoContato: number | null; // null se nunca contatado
+  diasDesdeUltimoContato: number | null;
   diasParaVencimento: number;
+  avatarUrl: string | null;
+  origemCanal: OrigemCanal | null;
+  origemDetalhe: string | null;
+  cidade: string | null;
+  profissao: string | null;
+  aniversario: string | null;
+  totalLogins: number;
+  ultimoLoginEm: string | null;
+  diasDesdeUltimoLogin: number | null;
+  diasNaPlataforma: number;
+  progressoItensCompletos: string[];
+  progressoChecklist: AlunoChecklistItemDTO[];
+  progressoPct: number;
   anonimizado: boolean;
   createdAt: string;
   updatedAt: string;
@@ -80,6 +117,12 @@ function formatCentavos(centavos: number): string {
 
 export function toAlunoDTO(record: AlunoRecord): AlunoDTO {
   const now = new Date();
+  const completedSet = new Set(record.progressoItensCompletos);
+  const checklist: AlunoChecklistItemDTO[] = TRILHA_CHECKLISTS[record.trilha].map((item) => ({
+    ...item,
+    completo: completedSet.has(item.key),
+  }));
+
   return {
     id: record.id,
     nome: record.nome,
@@ -106,6 +149,19 @@ export function toAlunoDTO(record: AlunoRecord): AlunoDTO {
       ? daysBetween(now, record.ultimoContatoEm)
       : null,
     diasParaVencimento: daysBetween(record.dataVencimento, now),
+    avatarUrl: record.avatarUrl,
+    origemCanal: record.origemCanal,
+    origemDetalhe: record.origemDetalhe,
+    cidade: record.cidade,
+    profissao: record.profissao,
+    aniversario: record.aniversario?.toISOString() ?? null,
+    totalLogins: record.totalLogins,
+    ultimoLoginEm: record.ultimoLoginEm?.toISOString() ?? null,
+    diasDesdeUltimoLogin: record.ultimoLoginEm ? daysBetween(now, record.ultimoLoginEm) : null,
+    diasNaPlataforma: daysBetween(now, record.createdAt),
+    progressoItensCompletos: record.progressoItensCompletos,
+    progressoChecklist: checklist,
+    progressoPct: trilhaProgressPct(record.trilha, record.progressoItensCompletos),
     anonimizado: record.anonymizedAt !== null,
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),

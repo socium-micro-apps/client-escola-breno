@@ -123,4 +123,38 @@ router.get('/stats', async (_req, res) => {
   });
 });
 
+// =============================================================================
+// GET /api/dashboard/cohort — retenção por mês de matrícula (ADR 0014)
+// =============================================================================
+router.get('/cohort', async (_req, res) => {
+  // Agrega por mês de dataInicio. Postgres date_trunc.
+  const rows = await prisma.$queryRaw<
+    Array<{ cohort: Date; total: bigint; ativos: bigint }>
+  >`
+    SELECT
+      date_trunc('month', "dataInicio") AS cohort,
+      COUNT(*)::bigint AS total,
+      SUM(CASE WHEN status = 'ativo' AND "deletedAt" IS NULL THEN 1 ELSE 0 END)::bigint AS ativos
+    FROM aluno
+    WHERE "deletedAt" IS NULL OR status != 'ativo'
+    GROUP BY date_trunc('month', "dataInicio")
+    ORDER BY cohort DESC
+    LIMIT 24
+  `;
+
+  const cohorts = rows.map((r) => {
+    const total = Number(r.total);
+    const ativos = Number(r.ativos);
+    return {
+      cohort: r.cohort.toISOString().slice(0, 7), // YYYY-MM
+      total,
+      ativos,
+      retidos: ativos,
+      pctRetencao: total > 0 ? Math.round((ativos / total) * 100) : 0,
+    };
+  });
+
+  res.json({ cohorts, geradoEm: new Date().toISOString() });
+});
+
 export default router;

@@ -1,6 +1,6 @@
 // Prisma schema — Escola do Breno (case admin)
 // Pre-kickoff: ADRs/pre-kick-off/0005-modelagem-aluno.md
-// Post-kickoff: ADRs/post-kick-off/0012, 0013
+// Post-kickoff: ADRs/post-kick-off/0012, 0013, 0014
 
 generator client {
   provider      = "prisma-client-js"
@@ -13,68 +13,102 @@ datasource db {
 }
 
 // =============================================================================
-// Admin — usuário do painel. Ver ADR 0003.
+// Admin — usuário do painel. ADR 0003 + 0014 (multi-papel).
 // =============================================================================
 model Admin {
   id            String         @id @default(uuid()) @db.Uuid
   email         String         @unique
   passwordHash  String
+  role          AdminRole      @default(operacao)
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   auditEvents   AuditEvent[]
   lgpdRequests  LgpdRequest[]
+  invitesCreated AdminInvite[] @relation("InviteCreatedBy")
 
   @@map("admin")
 }
 
 // =============================================================================
-// Aluno — entidade principal. ADR 0005 + 0012 + 0013.
-// PII: cpf, email, telefone, ultimoContatoNota — tratamento em ADR 0006.
+// AdminInvite — convite pendente para novo admin. ADR 0014.
+// =============================================================================
+model AdminInvite {
+  id          String     @id @default(uuid()) @db.Uuid
+  email       String
+  role        AdminRole
+  tokenHash   String     // bcrypt do token; só o original é exibido na criação
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdBy   Admin      @relation("InviteCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+  createdById String     @db.Uuid
+  createdAt   DateTime   @default(now())
+
+  @@index([email, acceptedAt])
+  @@index([expiresAt])
+  @@map("admin_invite")
+}
+
+// =============================================================================
+// Aluno — ADR 0005 + 0012 + 0013 + 0014.
 // =============================================================================
 model Aluno {
-  id                   String         @id @default(uuid()) @db.Uuid
-  nome                 String         @db.VarChar(120)
-  email                String         @unique
-  cpf                  String         @unique @db.VarChar(11)
-  telefone             String         @db.VarChar(11)
+  id                       String         @id @default(uuid()) @db.Uuid
+  nome                     String         @db.VarChar(120)
+  email                    String         @unique
+  cpf                      String         @unique @db.VarChar(11)
+  telefone                 String         @db.VarChar(11)
 
-  // Assinatura — ADR 0012 + 0013
-  plano                Plano          @default(anual)
-  status               StatusAluno    @default(ativo)
-  dataInicio           DateTime       @default(now())
-  dataVencimento       DateTime
-  renovacaoAutomatica  Boolean        @default(true)
-  valorAnualCentavos   Int            @default(29880)
+  // Assinatura
+  plano                    Plano          @default(anual)
+  status                   StatusAluno    @default(ativo)
+  dataInicio               DateTime       @default(now())
+  dataVencimento           DateTime
+  renovacaoAutomatica      Boolean        @default(true)
+  valorAnualCentavos       Int            @default(29880)
 
-  // Trilha — ADR 0012
-  trilha               Trilha         @default(saindo_da_divida)
+  // Trilha + progresso
+  trilha                   Trilha         @default(saindo_da_divida)
+  progressoItensCompletos  String[]       @default([])
 
-  // Consentimento (LGPD entrada) — ADR 0013
-  consentEmail         Boolean        @default(true)
-  consentWhatsapp      Boolean        @default(true)
-  consentOfertas       Boolean        @default(false)
-  termsAcceptedAt      DateTime       @default(now())
+  // Consentimento (LGPD entrada)
+  consentEmail             Boolean        @default(true)
+  consentWhatsapp          Boolean        @default(true)
+  consentOfertas           Boolean        @default(false)
+  termsAcceptedAt          DateTime       @default(now())
 
-  // Registro de contato manual — ADR 0013
-  ultimoContatoEm      DateTime?
-  ultimoContatoCanal   CanalContato?
-  ultimoContatoNota    String?        @db.VarChar(500)
+  // Registro de contato manual
+  ultimoContatoEm          DateTime?
+  ultimoContatoCanal       CanalContato?
+  ultimoContatoNota        String?        @db.VarChar(500)
 
-  // LGPD — ADR 0012
-  anonymizedAt         DateTime?
+  // Perfil rico (ADR 0014)
+  avatarUrl                String?        @db.VarChar(500)
+  origemCanal              OrigemCanal?
+  origemDetalhe            String?        @db.VarChar(200)
+  cidade                   String?        @db.VarChar(80)
+  profissao                String?        @db.VarChar(80)
+  aniversario              DateTime?
 
-  createdAt            DateTime       @default(now())
-  updatedAt            DateTime       @updatedAt
-  deletedAt            DateTime?
+  // Métricas de uso do produto (alimentadas por webhook futuro; hoje só seed/manual)
+  totalLogins              Int            @default(0)
+  ultimoLoginEm            DateTime?
 
-  auditEvents          AuditEvent[]
-  lgpdRequests         LgpdRequest[]
+  // LGPD
+  anonymizedAt             DateTime?
+
+  createdAt                DateTime       @default(now())
+  updatedAt                DateTime       @updatedAt
+  deletedAt                DateTime?
+
+  auditEvents              AuditEvent[]
+  lgpdRequests             LgpdRequest[]
 
   @@index([deletedAt])
   @@index([status])
   @@index([trilha])
   @@index([dataVencimento])
   @@index([ultimoContatoEm])
+  @@index([origemCanal])
   @@map("aluno")
 }
 
@@ -98,7 +132,7 @@ model AuditEvent {
 }
 
 // =============================================================================
-// LoginAttempt — auditoria de tentativas de login. ADR 0013.
+// LoginAttempt — auditoria de login. ADR 0013.
 // =============================================================================
 model LoginAttempt {
   id         String   @id @default(uuid()) @db.Uuid
@@ -115,8 +149,7 @@ model LoginAttempt {
 }
 
 // =============================================================================
-// LgpdRequest — rastreamento de pedidos LGPD recebidos por canais externos.
-// ADR 0013.
+// LgpdRequest — pedidos LGPD externos. ADR 0013.
 // =============================================================================
 model LgpdRequest {
   id                String              @id @default(uuid()) @db.Uuid
@@ -143,6 +176,14 @@ model LgpdRequest {
 // =============================================================================
 // Enums
 // =============================================================================
+
+enum AdminRole {
+  super_admin
+  operacao
+  leitura
+
+  @@map("admin_role")
+}
 
 enum Plano {
   anual
@@ -205,4 +246,16 @@ enum LgpdRequestStatus {
   rejeitado
 
   @@map("lgpd_request_status")
+}
+
+enum OrigemCanal {
+  instagram
+  youtube
+  indicacao
+  evento_presencial
+  busca_organica
+  anuncio_pago
+  outro
+
+  @@map("origem_canal")
 }

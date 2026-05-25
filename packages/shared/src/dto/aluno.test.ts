@@ -21,6 +21,15 @@ const fixture: AlunoRecord = {
   ultimoContatoEm: null,
   ultimoContatoCanal: null,
   ultimoContatoNota: null,
+  avatarUrl: null,
+  origemCanal: null,
+  origemDetalhe: null,
+  cidade: null,
+  profissao: null,
+  aniversario: null,
+  totalLogins: 0,
+  ultimoLoginEm: null,
+  progressoItensCompletos: [],
   anonymizedAt: null,
   createdAt: new Date('2026-01-01T10:00:00Z'),
   updatedAt: new Date('2026-01-02T10:00:00Z'),
@@ -131,6 +140,73 @@ describe('campos v3 (consent + contato + valor)', () => {
     expect(dto.diasDesdeUltimoContato).toBeLessThanOrEqual(10);
     expect(dto.ultimoContatoCanal).toBe('whatsapp');
     expect(dto.ultimoContatoNota).toBe('falou que voltava em 30 dias');
+  });
+});
+
+describe('campos v4 (perfil + métricas + progresso)', () => {
+  it('expõe avatar, origem, perfil quando presentes', () => {
+    const record: AlunoRecord = {
+      ...fixture,
+      avatarUrl: 'https://api.dicebear.com/9.x/avataaars/svg?seed=ana',
+      origemCanal: 'indicacao',
+      origemDetalhe: 'indicada por Carla',
+      cidade: 'São Paulo - SP',
+      profissao: 'gerente de marketing',
+    };
+    const dto = toAlunoDTO(record);
+    expect(dto.avatarUrl).toContain('dicebear');
+    expect(dto.origemCanal).toBe('indicacao');
+    expect(dto.origemDetalhe).toBe('indicada por Carla');
+    expect(dto.cidade).toBe('São Paulo - SP');
+    expect(dto.profissao).toBe('gerente de marketing');
+  });
+
+  it('calcula diasDesdeUltimoLogin e diasNaPlataforma', () => {
+    const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+    const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
+    const record: AlunoRecord = {
+      ...fixture,
+      createdAt: tenDaysAgo,
+      ultimoLoginEm: twoDaysAgo,
+      totalLogins: 7,
+    };
+    const dto = toAlunoDTO(record);
+    expect(dto.totalLogins).toBe(7);
+    expect(dto.diasDesdeUltimoLogin).toBeGreaterThanOrEqual(1);
+    expect(dto.diasDesdeUltimoLogin).toBeLessThanOrEqual(2);
+    expect(dto.diasNaPlataforma).toBeGreaterThanOrEqual(9);
+    expect(dto.diasNaPlataforma).toBeLessThanOrEqual(10);
+  });
+
+  it('expande checklist da trilha atual com flag completo', () => {
+    const record: AlunoRecord = {
+      ...fixture,
+      trilha: 'construindo_patrimonio',
+      progressoItensCompletos: ['perfil_investidor', 'primeiro_aporte'],
+    };
+    const dto = toAlunoDTO(record);
+    expect(dto.progressoChecklist.length).toBe(5);
+    expect(dto.progressoChecklist.find((i) => i.key === 'perfil_investidor')?.completo).toBe(true);
+    expect(dto.progressoChecklist.find((i) => i.key === 'rebalanceou')?.completo).toBe(false);
+  });
+
+  it('calcula progressoPct corretamente', () => {
+    // saindo_da_divida tem 4 itens; 2 completos = 50%
+    const record: AlunoRecord = {
+      ...fixture,
+      trilha: 'saindo_da_divida',
+      progressoItensCompletos: ['mapeou_dividas', 'primeira_planilha'],
+    };
+    expect(toAlunoDTO(record).progressoPct).toBe(50);
+  });
+
+  it('progressoPct ignora chaves desconhecidas', () => {
+    const record: AlunoRecord = {
+      ...fixture,
+      trilha: 'saindo_da_divida',
+      progressoItensCompletos: ['mapeou_dividas', 'chave_invalida_xyz'],
+    };
+    expect(toAlunoDTO(record).progressoPct).toBe(25); // 1 de 4
   });
 });
 

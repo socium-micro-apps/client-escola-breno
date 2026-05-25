@@ -103,8 +103,16 @@ router.post('/logout', (_req, res) => {
   res.json({ ok: true });
 });
 
-router.get('/me', requireAuth, (req, res) => {
-  res.json({ id: req.user!.id, email: req.user!.email });
+router.get('/me', requireAuth, async (req, res) => {
+  const admin = await prisma.admin.findUnique({
+    where: { id: req.user!.id },
+    select: { id: true, email: true, role: true },
+  });
+  if (!admin) {
+    res.status(401).json({ error: 'unauthorized', message: 'Sessão inválida' });
+    return;
+  }
+  res.json(admin);
 });
 
 export default router;
