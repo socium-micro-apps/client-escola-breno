@@ -1,4 +1,4 @@
-import { changePasswordSchema, loginSchema, type ChangePasswordInput } from '@escola/shared';
+import { loginSchema } from '@escola/shared';
 import bcrypt from 'bcryptjs';
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
@@ -114,54 +114,5 @@ router.get('/me', requireAuth, async (req, res) => {
   }
   res.json(admin);
 });
-
-// =============================================================================
-// POST /api/auth/change-password — admin troca a própria senha
-// =============================================================================
-// Rate limit dedicado (mais frouxo que o login mas previne abuso)
-const changePasswordLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 10,
-  standardHeaders: 'draft-7',
-  legacyHeaders: false,
-  message: {
-    error: 'too_many_requests',
-    message: 'Muitas tentativas. Tente novamente em alguns minutos.',
-  },
-});
-
-router.post(
-  '/change-password',
-  requireAuth,
-  changePasswordLimiter,
-  validate(changePasswordSchema),
-  async (req, res) => {
-    const { currentPassword, newPassword } = req.body as ChangePasswordInput;
-    const adminId = req.user!.id;
-
-    const admin = await prisma.admin.findUnique({ where: { id: adminId } });
-    if (!admin) {
-      res.status(401).json({ error: 'unauthorized', message: 'Sessão inválida' });
-      return;
-    }
-
-    const ok = await bcrypt.compare(currentPassword, admin.passwordHash);
-    if (!ok) {
-      res.status(401).json({
-        error: 'invalid_credentials',
-        message: 'Senha atual incorreta',
-      });
-      return;
-    }
-
-    const newHash = await bcrypt.hash(newPassword, 10);
-    await prisma.admin.update({
-      where: { id: adminId },
-      data: { passwordHash: newHash },
-    });
-
-    res.json({ ok: true });
-  },
-);
 
 export default router;
