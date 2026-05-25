@@ -1,6 +1,8 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { Toaster } from 'sonner';
+import { AlunoDetailPage } from '@/pages/AlunoDetailPage';
 import { AlunosPage } from '@/pages/AlunosPage';
+import { DashboardPage } from '@/pages/DashboardPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { useAuth } from '@/lib/auth';
 
@@ -23,6 +25,14 @@ export function App() {
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route
+          path="/dashboard"
+          element={
+            <RequireAuth>
+              <DashboardPage />
+            </RequireAuth>
+          }
+        />
+        <Route
           path="/alunos"
           element={
             <RequireAuth>
@@ -30,8 +40,16 @@ export function App() {
             </RequireAuth>
           }
         />
-        <Route path="/" element={<Navigate to="/alunos" replace />} />
-        <Route path="*" element={<Navigate to="/alunos" replace />} />
+        <Route
+          path="/alunos/:id"
+          element={
+            <RequireAuth>
+              <AlunoDetailPage />
+            </RequireAuth>
+          }
+        />
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
       <Toaster position="bottom-right" richColors />
     </>

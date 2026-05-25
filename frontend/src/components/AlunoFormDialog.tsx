@@ -1,10 +1,11 @@
 import {
+  TRILHA_LABEL,
   createAlunoSchema,
   formatCpf,
   formatTelefone,
   type CreateAlunoInput,
-  type Plano,
   type StatusAluno,
+  type Trilha,
 } from '@escola/shared';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -28,22 +29,34 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 interface AlunoFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  // Quando passado, é modo edição
   initial?: {
     id: string;
     nome: string;
     email: string;
-    cpf?: string; // só presente quando revelado
+    cpf?: string;
     cpfMasked: string;
     telefone: string;
-    plano: Plano;
     status: StatusAluno;
+    trilha: Trilha;
+    dataInicio: string;
+    dataVencimento: string;
+    renovacaoAutomatica: boolean;
   };
+}
+
+function dateInputValue(iso: string | undefined): string {
+  if (!iso) return '';
+  return iso.slice(0, 10);
 }
 
 export function AlunoFormDialog({ open, onOpenChange, initial }: AlunoFormDialogProps) {
   const queryClient = useQueryClient();
   const isEdit = Boolean(initial);
+
+  type FormInput = Omit<CreateAlunoInput, 'dataInicio' | 'dataVencimento'> & {
+    dataInicio?: string;
+    dataVencimento?: string;
+  };
 
   const {
     register,
@@ -53,42 +66,60 @@ export function AlunoFormDialog({ open, onOpenChange, initial }: AlunoFormDialog
     setError,
     setValue,
     watch,
-  } = useForm<CreateAlunoInput>({
-    resolver: zodResolver(createAlunoSchema),
+  } = useForm<FormInput>({
+    resolver: zodResolver(createAlunoSchema) as never,
     defaultValues: {
       nome: '',
       email: '',
       cpf: '',
       telefone: '',
-      plano: 'basic',
+      plano: 'anual',
       status: 'ativo',
+      trilha: 'saindo_da_divida',
+      renovacaoAutomatica: true,
     },
   });
 
   useEffect(() => {
     if (open) {
+      const today = new Date();
+      const nextYear = new Date(today.getFullYear() + 1, today.getMonth(), today.getDate());
       reset({
         nome: initial?.nome ?? '',
         email: initial?.email ?? '',
         cpf: initial?.cpf ?? '',
         telefone: initial?.telefone ? formatTelefone(initial.telefone) : '',
-        plano: initial?.plano ?? 'basic',
+        plano: 'anual',
         status: initial?.status ?? 'ativo',
+        trilha: initial?.trilha ?? 'saindo_da_divida',
+        dataInicio: dateInputValue(initial?.dataInicio) || today.toISOString().slice(0, 10),
+        dataVencimento:
+          dateInputValue(initial?.dataVencimento) || nextYear.toISOString().slice(0, 10),
+        renovacaoAutomatica: initial?.renovacaoAutomatica ?? true,
       });
     }
   }, [open, initial, reset]);
 
-  const plano = watch('plano');
   const status = watch('status');
+  const trilha = watch('trilha');
+  const renovacaoAutomatica = watch('renovacaoAutomatica');
 
   const mutation = useMutation({
-    mutationFn: (data: CreateAlunoInput) => {
+    mutationFn: (data: FormInput) => {
+      const payload = {
+        ...data,
+        dataInicio: data.dataInicio ? new Date(data.dataInicio).toISOString() : undefined,
+        dataVencimento: data.dataVencimento
+          ? new Date(data.dataVencimento).toISOString()
+          : undefined,
+      };
       return isEdit
-        ? api.patch(`/alunos/${initial!.id}`, data)
-        : api.post('/alunos', data);
+        ? api.patch(`/alunos/${initial!.id}`, payload)
+        : api.post('/alunos', payload);
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['alunos'] });
+      await queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       toast.success(isEdit ? 'aluno atualizado' : 'aluno adicionado');
       onOpenChange(false);
     },
@@ -96,7 +127,7 @@ export function AlunoFormDialog({ open, onOpenChange, initial }: AlunoFormDialog
       if (err instanceof ApiError) {
         if (err.status === 400 && err.details) {
           for (const [field, messages] of Object.entries(err.details)) {
-            if (messages?.[0]) setError(field as keyof CreateAlunoInput, { message: messages[0] });
+            if (messages?.[0]) setError(field as keyof FormInput, { message: messages[0] });
           }
           return;
         }
@@ -111,7 +142,7 @@ export function AlunoFormDialog({ open, onOpenChange, initial }: AlunoFormDialog
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'editar aluno' : 'adicionar aluno'}</DialogTitle>
           <DialogDescription>
@@ -136,11 +167,7 @@ export function AlunoFormDialog({ open, onOpenChange, initial }: AlunoFormDialog
             </div>
             <div className="grid gap-2">
               <Label htmlFor="telefone">Telefone</Label>
-              <Input
-                id="telefone"
-                placeholder="(11) 98765-4321"
-                {...register('telefone')}
-              />
+              <Input id="telefone" placeholder="(11) 98765-4321" {...register('telefone')} />
               {errors.telefone && (
                 <span className="text-xs text-danger">{errors.telefone.message}</span>
               )}
@@ -166,14 +193,22 @@ export function AlunoFormDialog({ open, onOpenChange, initial }: AlunoFormDialog
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="grid gap-2">
-              <Label htmlFor="plano">Plano</Label>
-              <Select value={plano} onValueChange={(v) => setValue('plano', v as Plano)}>
+              <Label htmlFor="trilha">Trilha</Label>
+              <Select value={trilha} onValueChange={(v) => setValue('trilha', v as Trilha)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="basic">basic</SelectItem>
-                  <SelectItem value="premium">premium</SelectItem>
+                  <SelectItem value="saindo_da_divida">{TRILHA_LABEL.saindo_da_divida}</SelectItem>
+                  <SelectItem value="fazendo_sobrar_dinheiro">
+                    {TRILHA_LABEL.fazendo_sobrar_dinheiro}
+                  </SelectItem>
+                  <SelectItem value="montando_reserva">
+                    {TRILHA_LABEL.montando_reserva}
+                  </SelectItem>
+                  <SelectItem value="construindo_patrimonio">
+                    {TRILHA_LABEL.construindo_patrimonio}
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -190,6 +225,33 @@ export function AlunoFormDialog({ open, onOpenChange, initial }: AlunoFormDialog
                 </SelectContent>
               </Select>
             </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <Label htmlFor="dataInicio">Início da assinatura</Label>
+              <Input id="dataInicio" type="date" {...register('dataInicio')} />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="dataVencimento">Vencimento</Label>
+              <Input id="dataVencimento" type="date" {...register('dataVencimento')} />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2">
+            <input
+              id="renovacaoAutomatica"
+              type="checkbox"
+              checked={renovacaoAutomatica}
+              onChange={(e) => setValue('renovacaoAutomatica', e.target.checked)}
+              className="h-4 w-4 cursor-pointer rounded border-neutral-300 text-brand-orange focus:ring-brand-orange"
+            />
+            <label
+              htmlFor="renovacaoAutomatica"
+              className="cursor-pointer text-sm text-neutral-700"
+            >
+              renovação automática
+            </label>
           </div>
 
           <DialogFooter className="pt-2">
