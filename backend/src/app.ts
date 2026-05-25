@@ -9,8 +9,10 @@ import { env } from './env.js';
 import { logger } from './logger.js';
 import { errorHandler, notFoundHandler } from './middleware/error.js';
 import alunosRouter from './routes/alunos.js';
+import auditRouter from './routes/audit.js';
 import authRouter from './routes/auth.js';
 import dashboardRouter from './routes/dashboard.js';
+import lgpdRouter from './routes/lgpd.js';
 
 export function createApp() {
   const app = express();
@@ -71,6 +73,8 @@ export function createApp() {
   app.use('/api/auth', authRouter);
   app.use('/api/alunos', alunosRouter);
   app.use('/api/dashboard', dashboardRouter);
+  app.use('/api/audit', auditRouter);
+  app.use('/api/lgpd', lgpdRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

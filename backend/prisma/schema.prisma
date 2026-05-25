@@ -1,6 +1,6 @@
 // Prisma schema — Escola do Breno (case admin)
-// Decisões em ADRs/pre-kick-off/0005-modelagem-aluno.md
-// Realinhamento ao produto real em ADRs/post-kick-off/0012-realinhamento-ao-produto-real.md
+// Pre-kickoff: ADRs/pre-kick-off/0005-modelagem-aluno.md
+// Post-kickoff: ADRs/post-kick-off/0012, 0013
 
 generator client {
   provider      = "prisma-client-js"
@@ -13,59 +13,73 @@ datasource db {
 }
 
 // =============================================================================
-// Admin — usuário do painel. Apenas um (semeado). Ver ADR 0003.
+// Admin — usuário do painel. Ver ADR 0003.
 // =============================================================================
 model Admin {
-  id           String        @id @default(uuid()) @db.Uuid
-  email        String        @unique
-  passwordHash String
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  auditEvents  AuditEvent[]
+  id            String         @id @default(uuid()) @db.Uuid
+  email         String         @unique
+  passwordHash  String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  auditEvents   AuditEvent[]
+  lgpdRequests  LgpdRequest[]
 
   @@map("admin")
 }
 
 // =============================================================================
-// Aluno — entidade principal. Ver ADR 0005 + ADR 0012.
-// PII: cpf, email, telefone — tratamento em ADR 0006 e 0007.
-// Soft delete via deletedAt. Ver ADR 0008.
+// Aluno — entidade principal. ADR 0005 + 0012 + 0013.
+// PII: cpf, email, telefone, ultimoContatoNota — tratamento em ADR 0006.
 // =============================================================================
 model Aluno {
-  id                  String       @id @default(uuid()) @db.Uuid
-  nome                String       @db.VarChar(120)
-  email               String       @unique
-  cpf                 String       @unique @db.VarChar(11)
-  telefone            String       @db.VarChar(11)
+  id                   String         @id @default(uuid()) @db.Uuid
+  nome                 String         @db.VarChar(120)
+  email                String         @unique
+  cpf                  String         @unique @db.VarChar(11)
+  telefone             String         @db.VarChar(11)
 
-  // Assinatura — ADR 0012
-  plano               Plano        @default(anual)
-  status              StatusAluno  @default(ativo)
-  dataInicio          DateTime     @default(now())
-  dataVencimento      DateTime
-  renovacaoAutomatica Boolean      @default(true)
+  // Assinatura — ADR 0012 + 0013
+  plano                Plano          @default(anual)
+  status               StatusAluno    @default(ativo)
+  dataInicio           DateTime       @default(now())
+  dataVencimento       DateTime
+  renovacaoAutomatica  Boolean        @default(true)
+  valorAnualCentavos   Int            @default(29880)
 
-  // Trilha de aprendizado — ADR 0012
-  trilha              Trilha       @default(saindo_da_divida)
+  // Trilha — ADR 0012
+  trilha               Trilha         @default(saindo_da_divida)
 
-  // Marcador de anonimização (LGPD) — ADR 0012
-  anonymizedAt        DateTime?
+  // Consentimento (LGPD entrada) — ADR 0013
+  consentEmail         Boolean        @default(true)
+  consentWhatsapp      Boolean        @default(true)
+  consentOfertas       Boolean        @default(false)
+  termsAcceptedAt      DateTime       @default(now())
 
-  createdAt           DateTime     @default(now())
-  updatedAt           DateTime     @updatedAt
-  deletedAt           DateTime?
+  // Registro de contato manual — ADR 0013
+  ultimoContatoEm      DateTime?
+  ultimoContatoCanal   CanalContato?
+  ultimoContatoNota    String?        @db.VarChar(500)
 
-  auditEvents         AuditEvent[]
+  // LGPD — ADR 0012
+  anonymizedAt         DateTime?
+
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+  deletedAt            DateTime?
+
+  auditEvents          AuditEvent[]
+  lgpdRequests         LgpdRequest[]
 
   @@index([deletedAt])
   @@index([status])
   @@index([trilha])
   @@index([dataVencimento])
+  @@index([ultimoContatoEm])
   @@map("aluno")
 }
 
 // =============================================================================
-// AuditEvent — registro de mudanças em Aluno. Ver ADR 0012.
+// AuditEvent — mudanças em Aluno. ADR 0012.
 // =============================================================================
 model AuditEvent {
   id        String      @id @default(uuid()) @db.Uuid
@@ -81,6 +95,49 @@ model AuditEvent {
   @@index([alunoId, createdAt])
   @@index([adminId])
   @@map("audit_event")
+}
+
+// =============================================================================
+// LoginAttempt — auditoria de tentativas de login. ADR 0013.
+// =============================================================================
+model LoginAttempt {
+  id         String   @id @default(uuid()) @db.Uuid
+  email      String   @db.VarChar(254)
+  ip         String?  @db.VarChar(45)
+  userAgent  String?  @db.VarChar(500)
+  success    Boolean
+  reason     String?  @db.VarChar(60)
+  createdAt  DateTime @default(now())
+
+  @@index([email, createdAt])
+  @@index([createdAt])
+  @@map("login_attempt")
+}
+
+// =============================================================================
+// LgpdRequest — rastreamento de pedidos LGPD recebidos por canais externos.
+// ADR 0013.
+// =============================================================================
+model LgpdRequest {
+  id                String              @id @default(uuid()) @db.Uuid
+  aluno             Aluno?              @relation(fields: [alunoId], references: [id], onDelete: SetNull)
+  alunoId           String?             @db.Uuid
+  requesterEmail    String              @db.VarChar(254)
+  requesterCpf      String?             @db.VarChar(11)
+  type              LgpdRequestType
+  status            LgpdRequestStatus   @default(recebido)
+  receivedAt        DateTime            @default(now())
+  dueAt             DateTime
+  completedAt       DateTime?
+  notes             String?             @db.VarChar(1000)
+  handledByAdmin    Admin?              @relation(fields: [handledByAdminId], references: [id], onDelete: SetNull)
+  handledByAdminId  String?             @db.Uuid
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  @@index([status, dueAt])
+  @@index([alunoId])
+  @@map("lgpd_request")
 }
 
 // =============================================================================
@@ -116,6 +173,36 @@ enum AuditAction {
   delete
   restore
   anonymize
+  contact
 
   @@map("audit_action")
+}
+
+enum CanalContato {
+  whatsapp
+  telefone
+  email
+  presencial
+  outro
+
+  @@map("canal_contato")
+}
+
+enum LgpdRequestType {
+  acesso
+  retificacao
+  apagamento
+  portabilidade
+  oposicao
+
+  @@map("lgpd_request_type")
+}
+
+enum LgpdRequestStatus {
+  recebido
+  em_andamento
+  concluido
+  rejeitado
+
+  @@map("lgpd_request_status")
 }

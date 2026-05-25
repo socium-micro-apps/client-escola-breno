@@ -10,6 +10,7 @@ router.get('/stats', async (_req, res) => {
   const now = new Date();
   const trintaDiasAtras = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
   const trintaDiasAFrente = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+  const sessentaDiasAtras = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);
 
   const [
     total,
@@ -19,6 +20,10 @@ router.get('/stats', async (_req, res) => {
     canceladosUltimos30,
     vencendoProximos30,
     vencidos,
+    receitaAtivos,
+    semContatoHa60d,
+    lgpdAbertos,
+    lgpdVencidos,
   ] = await Promise.all([
     prisma.aluno.count({ where: { deletedAt: null } }),
     prisma.aluno.groupBy({
@@ -50,15 +55,42 @@ router.get('/stats', async (_req, res) => {
     prisma.aluno.count({
       where: { deletedAt: null, dataVencimento: { lt: now } },
     }),
+    // ARR = soma de valorAnualCentavos de ativos não-deletados
+    prisma.aluno.aggregate({
+      where: { deletedAt: null, status: 'ativo' },
+      _sum: { valorAnualCentavos: true },
+    }),
+    // Alunos ativos sem contato há > 60 dias (ou nunca)
+    prisma.aluno.count({
+      where: {
+        deletedAt: null,
+        status: 'ativo',
+        OR: [
+          { ultimoContatoEm: null },
+          { ultimoContatoEm: { lt: sessentaDiasAtras } },
+        ],
+      },
+    }),
+    prisma.lgpdRequest.count({
+      where: { status: { in: ['recebido', 'em_andamento'] } },
+    }),
+    prisma.lgpdRequest.count({
+      where: {
+        status: { in: ['recebido', 'em_andamento'] },
+        dueAt: { lt: now },
+      },
+    }),
   ]);
 
-  // Normaliza groupBy para Record<string, number>
   const statusMap = Object.fromEntries(
     porStatus.map((s) => [s.status, s._count._all]),
   );
   const trilhaMap = Object.fromEntries(
     porTrilha.map((t) => [t.trilha, t._count._all]),
   );
+
+  const arrCentavos = receitaAtivos._sum.valorAnualCentavos ?? 0;
+  const mrrCentavos = Math.round(arrCentavos / 12);
 
   res.json({
     total,
@@ -76,6 +108,16 @@ router.get('/stats', async (_req, res) => {
       fazendo_sobrar_dinheiro: trilhaMap.fazendo_sobrar_dinheiro ?? 0,
       montando_reserva: trilhaMap.montando_reserva ?? 0,
       construindo_patrimonio: trilhaMap.construindo_patrimonio ?? 0,
+    },
+    financeiro: {
+      arrCentavos,
+      mrrCentavos,
+      ticketMedioCentavos: statusMap.ativo > 0 ? Math.round(arrCentavos / statusMap.ativo) : 0,
+    },
+    atencao: {
+      semContatoHa60d,
+      lgpdAbertos,
+      lgpdVencidos,
     },
     geradoEm: now.toISOString(),
   });

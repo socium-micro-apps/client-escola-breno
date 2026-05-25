@@ -13,6 +13,14 @@ const fixture: AlunoRecord = {
   dataInicio: new Date('2026-01-01T10:00:00Z'),
   dataVencimento: new Date('2027-01-01T10:00:00Z'),
   renovacaoAutomatica: true,
+  valorAnualCentavos: 29880,
+  consentEmail: true,
+  consentWhatsapp: true,
+  consentOfertas: false,
+  termsAcceptedAt: new Date('2026-01-01T10:00:00Z'),
+  ultimoContatoEm: null,
+  ultimoContatoCanal: null,
+  ultimoContatoNota: null,
   anonymizedAt: null,
   createdAt: new Date('2026-01-01T10:00:00Z'),
   updatedAt: new Date('2026-01-02T10:00:00Z'),
@@ -85,6 +93,44 @@ describe('toAlunoDTO', () => {
     expect(dto.nome).toBe('Ana Souza');
     expect(dto.email).toBe('ana.souza@example.com');
     expect(dto.status).toBe('ativo');
+  });
+});
+
+describe('campos v3 (consent + contato + valor)', () => {
+  it('expõe consent flags', () => {
+    const dto = toAlunoDTO(fixture);
+    expect(dto.consentEmail).toBe(true);
+    expect(dto.consentWhatsapp).toBe(true);
+    expect(dto.consentOfertas).toBe(false);
+  });
+
+  it('formata valor em centavos como BRL', () => {
+    const dto = toAlunoDTO(fixture);
+    expect(dto.valorAnualCentavos).toBe(29880);
+    // Aceita diferentes formatos de espaço/non-breaking
+    expect(dto.valorAnualFormatado).toMatch(/^R\$\s?298,80$/);
+  });
+
+  it('diasDesdeUltimoContato é null quando nunca contatado', () => {
+    const dto = toAlunoDTO(fixture);
+    expect(dto.diasDesdeUltimoContato).toBeNull();
+    expect(dto.ultimoContatoEm).toBeNull();
+    expect(dto.ultimoContatoCanal).toBeNull();
+  });
+
+  it('calcula diasDesdeUltimoContato quando há contato', () => {
+    const tenDaysAgo = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
+    const record: AlunoRecord = {
+      ...fixture,
+      ultimoContatoEm: tenDaysAgo,
+      ultimoContatoCanal: 'whatsapp',
+      ultimoContatoNota: 'falou que voltava em 30 dias',
+    };
+    const dto = toAlunoDTO(record);
+    expect(dto.diasDesdeUltimoContato).toBeGreaterThanOrEqual(9);
+    expect(dto.diasDesdeUltimoContato).toBeLessThanOrEqual(10);
+    expect(dto.ultimoContatoCanal).toBe('whatsapp');
+    expect(dto.ultimoContatoNota).toBe('falou que voltava em 30 dias');
   });
 });
 

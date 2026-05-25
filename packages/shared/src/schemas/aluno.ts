@@ -3,7 +3,6 @@ import { isValidCpf, normalizeCpf } from '../validators/cpf.js';
 import { isValidEmail, normalizeEmail } from '../validators/email.js';
 import { isValidTelefone, normalizeTelefone } from '../validators/telefone.js';
 
-// Plano: por ora só 'anual'. Enum mantido para evolução futura (mensal, bienal).
 export const PlanoSchema = z.enum(['anual']);
 export const StatusAlunoSchema = z.enum(['ativo', 'pausado', 'cancelado']);
 export const TrilhaSchema = z.enum([
@@ -12,13 +11,19 @@ export const TrilhaSchema = z.enum([
   'montando_reserva',
   'construindo_patrimonio',
 ]);
+export const CanalContatoSchema = z.enum([
+  'whatsapp',
+  'telefone',
+  'email',
+  'presencial',
+  'outro',
+]);
 
 export type Plano = z.infer<typeof PlanoSchema>;
 export type StatusAluno = z.infer<typeof StatusAlunoSchema>;
 export type Trilha = z.infer<typeof TrilhaSchema>;
+export type CanalContato = z.infer<typeof CanalContatoSchema>;
 
-// Labels human-readable para exibição (UI usa direto). Vocabulário oficial da
-// marca, conforme planilhadobreno.com.br.
 export const TRILHA_LABEL: Record<Trilha, string> = {
   saindo_da_divida: 'saindo da dívida',
   fazendo_sobrar_dinheiro: 'fazendo sobrar dinheiro',
@@ -30,6 +35,14 @@ export const STATUS_LABEL: Record<StatusAluno, string> = {
   ativo: 'ativo',
   pausado: 'pausado',
   cancelado: 'cancelado',
+};
+
+export const CANAL_LABEL: Record<CanalContato, string> = {
+  whatsapp: 'WhatsApp',
+  telefone: 'telefone',
+  email: 'e-mail',
+  presencial: 'presencial',
+  outro: 'outro',
 };
 
 const NomeSchema = z
@@ -53,17 +66,11 @@ const TelefoneSchema = z
   .transform(normalizeTelefone)
   .refine(isValidTelefone, { message: 'Telefone inválido' });
 
-// Aceita string ISO ou Date. Devolve Date.
-const DateInputSchema = z.union([z.string().datetime({ offset: true }), z.string().date(), z.date()])
+const DateInputSchema = z
+  .union([z.string().datetime({ offset: true }), z.string().date(), z.date()])
   .transform((v) => (v instanceof Date ? v : new Date(v)))
   .refine((d) => !Number.isNaN(d.getTime()), { message: 'Data inválida' });
 
-/**
- * Schema de criação de aluno (admin form).
- *
- * `dataInicio` opcional default hoje. `dataVencimento` opcional default
- * `dataInicio` + 1 ano (mas o backend calcula final — schema só valida shape).
- */
 export const createAlunoSchema = z.object({
   nome: NomeSchema,
   email: EmailSchema,
@@ -75,12 +82,14 @@ export const createAlunoSchema = z.object({
   dataInicio: DateInputSchema.optional(),
   dataVencimento: DateInputSchema.optional(),
   renovacaoAutomatica: z.boolean().optional().default(true),
+  valorAnualCentavos: z.coerce.number().int().nonnegative().optional().default(29880),
+  consentEmail: z.boolean().optional().default(true),
+  consentWhatsapp: z.boolean().optional().default(true),
+  consentOfertas: z.boolean().optional().default(false),
 });
 
-/** Atualização parcial — todos os campos opcionais. */
 export const updateAlunoSchema = createAlunoSchema.partial();
 
-/** Query da listagem com busca + filtros + paginação. */
 export const listAlunosQuerySchema = z.object({
   q: z.string().trim().optional(),
   status: StatusAlunoSchema.optional(),
@@ -91,6 +100,12 @@ export const listAlunosQuerySchema = z.object({
   pageSize: z.coerce.number().int().positive().max(100).optional().default(20),
 });
 
+export const registerContactSchema = z.object({
+  canal: CanalContatoSchema,
+  nota: z.string().trim().max(500, 'Nota deve ter no máximo 500 caracteres').optional(),
+});
+
 export type CreateAlunoInput = z.infer<typeof createAlunoSchema>;
 export type UpdateAlunoInput = z.infer<typeof updateAlunoSchema>;
 export type ListAlunosQuery = z.infer<typeof listAlunosQuerySchema>;
+export type RegisterContactInput = z.infer<typeof registerContactSchema>;

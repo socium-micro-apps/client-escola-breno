@@ -1,13 +1,11 @@
-// Serviço de auditoria — registra mutações em Aluno. Ver ADR 0012.
+// Serviço de auditoria — registra mutações em Aluno. ADR 0012 + 0013.
 //
-// Estratégia: registro per-row, gravado em audit_event. O before/after guarda
-// snapshots já anonimizados (DTO mascarado), evitando que o log de auditoria
-// se torne um vazamento secundário de PII.
+// Snapshots gravados com PII MASCARADA — audit não vira vazamento secundário.
 
 import type { Prisma, PrismaClient } from '@prisma/client';
-import { maskCpf } from '@escola/shared';
+import { maskCpf, type CanalContato } from '@escola/shared';
 
-type AuditAction = 'create' | 'update' | 'delete' | 'restore' | 'anonymize';
+type AuditAction = 'create' | 'update' | 'delete' | 'restore' | 'anonymize' | 'contact';
 
 interface AlunoSnapshot {
   id: string;
@@ -21,14 +19,16 @@ interface AlunoSnapshot {
   dataInicio: string;
   dataVencimento: string;
   renovacaoAutomatica: boolean;
+  valorAnualCentavos: number;
+  consentEmail: boolean;
+  consentWhatsapp: boolean;
+  consentOfertas: boolean;
+  ultimoContatoEm: string | null;
+  ultimoContatoCanal: CanalContato | null;
   anonymizedAt: string | null;
   deletedAt: string | null;
 }
 
-/**
- * Converte um Aluno em snapshot mascarado para o audit log.
- * NUNCA armazena CPF/telefone em claro no audit — preserva PII discipline.
- */
 export function toAlunoSnapshot(aluno: {
   id: string;
   nome: string;
@@ -41,6 +41,12 @@ export function toAlunoSnapshot(aluno: {
   dataInicio: Date;
   dataVencimento: Date;
   renovacaoAutomatica: boolean;
+  valorAnualCentavos: number;
+  consentEmail: boolean;
+  consentWhatsapp: boolean;
+  consentOfertas: boolean;
+  ultimoContatoEm: Date | null;
+  ultimoContatoCanal: CanalContato | null;
   anonymizedAt: Date | null;
   deletedAt: Date | null;
 }): AlunoSnapshot {
@@ -56,6 +62,12 @@ export function toAlunoSnapshot(aluno: {
     dataInicio: aluno.dataInicio.toISOString(),
     dataVencimento: aluno.dataVencimento.toISOString(),
     renovacaoAutomatica: aluno.renovacaoAutomatica,
+    valorAnualCentavos: aluno.valorAnualCentavos,
+    consentEmail: aluno.consentEmail,
+    consentWhatsapp: aluno.consentWhatsapp,
+    consentOfertas: aluno.consentOfertas,
+    ultimoContatoEm: aluno.ultimoContatoEm?.toISOString() ?? null,
+    ultimoContatoCanal: aluno.ultimoContatoCanal,
     anonymizedAt: aluno.anonymizedAt?.toISOString() ?? null,
     deletedAt: aluno.deletedAt?.toISOString() ?? null,
   };

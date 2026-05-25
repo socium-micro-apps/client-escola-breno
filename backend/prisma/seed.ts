@@ -26,6 +26,13 @@ const sampleAlunos = [
     dataInicio: plusDays(-200, today),
     dataVencimento: plusDays(165, today),
     renovacaoAutomatica: true,
+    valorAnualCentavos: 29880,
+    consentEmail: true,
+    consentWhatsapp: true,
+    consentOfertas: true,
+    ultimoContatoEm: plusDays(-15, today),
+    ultimoContatoCanal: 'whatsapp' as const,
+    ultimoContatoNota: 'pediu mais conteudo sobre investimentos',
   },
   {
     nome: 'Bruno Costa',
@@ -37,6 +44,12 @@ const sampleAlunos = [
     dataInicio: plusDays(-90, today),
     dataVencimento: plusDays(275, today),
     renovacaoAutomatica: true,
+    valorAnualCentavos: 29880,
+    consentEmail: true,
+    consentWhatsapp: false,
+    consentOfertas: false,
+    ultimoContatoEm: plusDays(-3, today),
+    ultimoContatoCanal: 'email' as const,
   },
   {
     nome: 'Carla Mendes',
@@ -48,6 +61,13 @@ const sampleAlunos = [
     dataInicio: plusDays(-150, today),
     dataVencimento: plusDays(215, today),
     renovacaoAutomatica: false,
+    valorAnualCentavos: 19800, // promo antiga
+    consentEmail: true,
+    consentWhatsapp: true,
+    consentOfertas: false,
+    ultimoContatoEm: plusDays(-45, today),
+    ultimoContatoCanal: 'telefone' as const,
+    ultimoContatoNota: 'pediu pausa por 3 meses por motivo financeiro',
   },
   {
     nome: 'Daniel Lima',
@@ -59,6 +79,12 @@ const sampleAlunos = [
     dataInicio: plusDays(-300, today),
     dataVencimento: plusDays(-30, today),
     renovacaoAutomatica: false,
+    valorAnualCentavos: 29880,
+    consentEmail: false,
+    consentWhatsapp: false,
+    consentOfertas: false,
+    ultimoContatoEm: plusDays(-30, today),
+    ultimoContatoCanal: 'whatsapp' as const,
   },
   {
     nome: 'Eduarda Pereira',
@@ -70,6 +96,10 @@ const sampleAlunos = [
     dataInicio: plusDays(-30, today),
     dataVencimento: plusDays(335, today),
     renovacaoAutomatica: true,
+    valorAnualCentavos: 29880,
+    consentEmail: true,
+    consentWhatsapp: true,
+    consentOfertas: true,
   },
   {
     nome: 'Fernando Alves',
@@ -81,6 +111,10 @@ const sampleAlunos = [
     dataInicio: plusDays(-10, today),
     dataVencimento: plusDays(355, today),
     renovacaoAutomatica: true,
+    valorAnualCentavos: 29880,
+    consentEmail: true,
+    consentWhatsapp: true,
+    consentOfertas: false,
   },
   {
     nome: 'Gabriela Rocha',
@@ -90,8 +124,15 @@ const sampleAlunos = [
     status: 'ativo' as const,
     trilha: 'fazendo_sobrar_dinheiro' as const,
     dataInicio: plusDays(-60, today),
-    dataVencimento: plusDays(15, today), // perto de vencer — destaca no dashboard
+    dataVencimento: plusDays(15, today),
     renovacaoAutomatica: true,
+    valorAnualCentavos: 29880,
+    consentEmail: true,
+    consentWhatsapp: true,
+    consentOfertas: true,
+    ultimoContatoEm: plusDays(-70, today),
+    ultimoContatoCanal: 'presencial' as const,
+    ultimoContatoNota: 'encontro presencial no evento',
   },
   {
     nome: 'Henrique Dias',
@@ -103,8 +144,32 @@ const sampleAlunos = [
     dataInicio: plusDays(-180, today),
     dataVencimento: plusDays(185, today),
     renovacaoAutomatica: true,
+    valorAnualCentavos: 29880,
+    consentEmail: true,
+    consentWhatsapp: false,
+    consentOfertas: false,
   },
 ] as const;
+
+const sampleLgpdRequests = [
+  {
+    requesterEmail: 'maria.passada@example.com',
+    requesterCpf: '52998224725',
+    type: 'apagamento' as const,
+    status: 'em_andamento' as const,
+    receivedAt: plusDays(-5, today),
+    dueAt: plusDays(10, today),
+    notes: 'recebido por whatsapp; ela pediu remoção total da base',
+  },
+  {
+    requesterEmail: 'curioso@example.com',
+    type: 'acesso' as const,
+    status: 'recebido' as const,
+    receivedAt: plusDays(-1, today),
+    dueAt: plusDays(14, today),
+    notes: 'cliente quer relatório completo dos próprios dados',
+  },
+];
 
 async function main() {
   console.log('🌱 Seeding database...');
@@ -118,8 +183,7 @@ async function main() {
   });
   console.log(`  ✓ Admin: ${admin.email}`);
 
-  // Alunos (idempotente por CPF — só cria se não existir, para preservar
-  // edições da operação após o primeiro seed)
+  // Alunos (idempotente — só cria, preserva edições)
   for (const aluno of sampleAlunos) {
     await prisma.aluno.upsert({
       where: { cpf: aluno.cpf },
@@ -128,6 +192,17 @@ async function main() {
     });
   }
   console.log(`  ✓ Alunos: ${sampleAlunos.length} registros`);
+
+  // LGPD requests (só cria se zero existem — não duplicar a cada deploy)
+  const existingRequests = await prisma.lgpdRequest.count();
+  if (existingRequests === 0) {
+    for (const req of sampleLgpdRequests) {
+      await prisma.lgpdRequest.create({ data: req });
+    }
+    console.log(`  ✓ LGPD requests: ${sampleLgpdRequests.length} registros (seed inicial)`);
+  } else {
+    console.log(`  ✓ LGPD requests: ${existingRequests} já existem, skip`);
+  }
 
   console.log('🌱 Seed completo.');
 }

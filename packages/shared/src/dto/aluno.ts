@@ -1,13 +1,10 @@
 // DTOs de saída — camada entre o Prisma model e a resposta da API.
-// Garante que PII não vaza cru. Ver ADR 0006 + ADR 0012.
+// Garante que PII não vaza cru. ADR 0006 + 0012 + 0013.
 
 import { formatTelefone } from '../validators/telefone.js';
 import { formatCpf, maskCpf } from '../validators/cpf.js';
-import type { Plano, StatusAluno, Trilha } from '../schemas/aluno.js';
+import type { CanalContato, Plano, StatusAluno, Trilha } from '../schemas/aluno.js';
 
-/**
- * Formato mínimo de Aluno como vem do Prisma (subset relevante).
- */
 export interface AlunoRecord {
   id: string;
   nome: string;
@@ -20,16 +17,20 @@ export interface AlunoRecord {
   dataInicio: Date;
   dataVencimento: Date;
   renovacaoAutomatica: boolean;
+  valorAnualCentavos: number;
+  consentEmail: boolean;
+  consentWhatsapp: boolean;
+  consentOfertas: boolean;
+  termsAcceptedAt: Date;
+  ultimoContatoEm: Date | null;
+  ultimoContatoCanal: CanalContato | null;
+  ultimoContatoNota: string | null;
   anonymizedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
 }
 
-/**
- * DTO público — CPF mascarado por padrão.
- * É o que sai em listagens e leituras "normais".
- */
 export interface AlunoDTO {
   id: string;
   nome: string;
@@ -43,17 +44,23 @@ export interface AlunoDTO {
   dataInicio: string;
   dataVencimento: string;
   renovacaoAutomatica: boolean;
-  diasParaVencimento: number; // negativo se vencido
+  valorAnualCentavos: number;
+  valorAnualFormatado: string;       // "R$ 298,80"
+  consentEmail: boolean;
+  consentWhatsapp: boolean;
+  consentOfertas: boolean;
+  termsAcceptedAt: string;
+  ultimoContatoEm: string | null;
+  ultimoContatoCanal: CanalContato | null;
+  ultimoContatoNota: string | null;
+  diasDesdeUltimoContato: number | null; // null se nunca contatado
+  diasParaVencimento: number;
   anonimizado: boolean;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
 }
 
-/**
- * DTO revelado — CPF e telefone formatados em claro.
- * Use APENAS quando o admin solicitar revelar (ação intencional, ADR 0006).
- */
 export interface AlunoRevealedDTO extends AlunoDTO {
   cpf: string;
   cpfFormatado: string;
@@ -64,11 +71,15 @@ function daysBetween(a: Date, b: Date): number {
   return Math.floor((a.getTime() - b.getTime()) / MS_PER_DAY);
 }
 
-/**
- * Serializa um Aluno do banco para o DTO público.
- * CPF mascarado por padrão.
- */
+function formatCentavos(centavos: number): string {
+  return (centavos / 100).toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  });
+}
+
 export function toAlunoDTO(record: AlunoRecord): AlunoDTO {
+  const now = new Date();
   return {
     id: record.id,
     nome: record.nome,
@@ -82,18 +93,26 @@ export function toAlunoDTO(record: AlunoRecord): AlunoDTO {
     dataInicio: record.dataInicio.toISOString(),
     dataVencimento: record.dataVencimento.toISOString(),
     renovacaoAutomatica: record.renovacaoAutomatica,
-    diasParaVencimento: daysBetween(record.dataVencimento, new Date()),
+    valorAnualCentavos: record.valorAnualCentavos,
+    valorAnualFormatado: formatCentavos(record.valorAnualCentavos),
+    consentEmail: record.consentEmail,
+    consentWhatsapp: record.consentWhatsapp,
+    consentOfertas: record.consentOfertas,
+    termsAcceptedAt: record.termsAcceptedAt.toISOString(),
+    ultimoContatoEm: record.ultimoContatoEm?.toISOString() ?? null,
+    ultimoContatoCanal: record.ultimoContatoCanal,
+    ultimoContatoNota: record.ultimoContatoNota,
+    diasDesdeUltimoContato: record.ultimoContatoEm
+      ? daysBetween(now, record.ultimoContatoEm)
+      : null,
+    diasParaVencimento: daysBetween(record.dataVencimento, now),
     anonimizado: record.anonymizedAt !== null,
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
-    deletedAt: record.deletedAt ? record.deletedAt.toISOString() : null,
+    deletedAt: record.deletedAt?.toISOString() ?? null,
   };
 }
 
-/**
- * Serializa um Aluno revelando CPF.
- * Use apenas em endpoint/ação explícita de "revelar".
- */
 export function toAlunoRevealedDTO(record: AlunoRecord): AlunoRevealedDTO {
   return {
     ...toAlunoDTO(record),

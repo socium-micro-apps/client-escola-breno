@@ -1,12 +1,14 @@
 import {
   createAlunoSchema,
   listAlunosQuerySchema,
+  registerContactSchema,
   toAlunoDTO,
   toAlunoRevealedDTO,
   updateAlunoSchema,
   type AlunoRecord,
   type CreateAlunoInput,
   type ListAlunosQuery,
+  type RegisterContactInput,
   type UpdateAlunoInput,
 } from '@escola/shared';
 import { Prisma } from '@prisma/client';
@@ -99,6 +101,10 @@ router.post('/', validate(createAlunoSchema), async (req, res) => {
         dataInicio,
         dataVencimento,
         renovacaoAutomatica: input.renovacaoAutomatica ?? true,
+        valorAnualCentavos: input.valorAnualCentavos ?? 29880,
+        consentEmail: input.consentEmail ?? true,
+        consentWhatsapp: input.consentWhatsapp ?? true,
+        consentOfertas: input.consentOfertas ?? false,
       },
     });
 
@@ -283,6 +289,53 @@ router.post('/:id/restore', validate(idParam, 'params'), async (req, res) => {
 });
 
 // =============================================================================
+// POST /api/alunos/:id/contact — registra contato manual da operação (ADR 0013)
+// =============================================================================
+router.post(
+  '/:id/contact',
+  validate(idParam, 'params'),
+  validate(registerContactSchema),
+  async (req, res) => {
+    const { id } = req.params as unknown as { id: string };
+    const input = req.body as RegisterContactInput;
+    const adminId = req.user!.id;
+
+    const existing = await prisma.aluno.findUnique({ where: { id } });
+    if (!existing || existing.deletedAt !== null) {
+      res.status(404).json({ error: 'not_found', message: 'Aluno não encontrado' });
+      return;
+    }
+    if (existing.anonymizedAt !== null) {
+      res.status(409).json({
+        error: 'conflict',
+        message: 'Não é possível registrar contato em aluno anonimizado',
+      });
+      return;
+    }
+
+    const before = toAlunoSnapshot(existing);
+    const updated = await prisma.aluno.update({
+      where: { id },
+      data: {
+        ultimoContatoEm: new Date(),
+        ultimoContatoCanal: input.canal,
+        ultimoContatoNota: input.nota ?? null,
+      },
+    });
+
+    await recordAudit(prisma, {
+      alunoId: id,
+      adminId,
+      action: 'contact',
+      before,
+      after: toAlunoSnapshot(updated),
+    });
+
+    res.json(toAlunoDTO(updated as AlunoRecord));
+  },
+);
+
+// =============================================================================
 // POST /api/alunos/:id/anonymize — LGPD: direito ao esquecimento (ADR 0012)
 // Zera PII, preserva linha + timestamps + audit trail
 // =============================================================================
@@ -310,6 +363,11 @@ router.post('/:id/anonymize', validate(idParam, 'params'), async (req, res) => {
       email: `${placeholder}@anonymized.local`,
       cpf: `00000000${id.replace(/-/g, '').slice(0, 3)}`,
       telefone: '00000000000',
+      // Reseta consent + contato — anonimização zera PII inclusive metadados
+      consentEmail: false,
+      consentWhatsapp: false,
+      consentOfertas: false,
+      ultimoContatoNota: null,
       anonymizedAt: new Date(),
       deletedAt: existing.deletedAt ?? new Date(),
     },
