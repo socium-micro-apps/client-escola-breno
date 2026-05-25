@@ -1,5 +1,6 @@
 // Prisma schema — Escola do Breno (case admin)
-// Decisões registradas em ADRs/pre-kick-off/0005-modelagem-aluno.md
+// Decisões em ADRs/pre-kick-off/0005-modelagem-aluno.md
+// Realinhamento ao produto real em ADRs/post-kick-off/0012-realinhamento-ao-produto-real.md
 
 generator client {
   provider      = "prisma-client-js"
@@ -15,41 +16,79 @@ datasource db {
 // Admin — usuário do painel. Apenas um (semeado). Ver ADR 0003.
 // =============================================================================
 model Admin {
-  id           String   @id @default(uuid()) @db.Uuid
-  email        String   @unique
+  id           String        @id @default(uuid()) @db.Uuid
+  email        String        @unique
   passwordHash String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  auditEvents  AuditEvent[]
 
   @@map("admin")
 }
 
 // =============================================================================
-// Aluno — entidade principal do domínio. Ver ADR 0005.
+// Aluno — entidade principal. Ver ADR 0005 + ADR 0012.
 // PII: cpf, email, telefone — tratamento em ADR 0006 e 0007.
 // Soft delete via deletedAt. Ver ADR 0008.
 // =============================================================================
 model Aluno {
-  id        String      @id @default(uuid()) @db.Uuid
-  nome      String      @db.VarChar(120)
-  email     String      @unique
-  cpf       String      @unique @db.VarChar(11)
-  telefone  String      @db.VarChar(11)
-  plano     Plano
-  status    StatusAluno @default(ativo)
-  createdAt DateTime    @default(now())
-  updatedAt DateTime    @updatedAt
-  deletedAt DateTime?
+  id                  String       @id @default(uuid()) @db.Uuid
+  nome                String       @db.VarChar(120)
+  email               String       @unique
+  cpf                 String       @unique @db.VarChar(11)
+  telefone            String       @db.VarChar(11)
+
+  // Assinatura — ADR 0012
+  plano               Plano        @default(anual)
+  status              StatusAluno  @default(ativo)
+  dataInicio          DateTime     @default(now())
+  dataVencimento      DateTime
+  renovacaoAutomatica Boolean      @default(true)
+
+  // Trilha de aprendizado — ADR 0012
+  trilha              Trilha       @default(saindo_da_divida)
+
+  // Marcador de anonimização (LGPD) — ADR 0012
+  anonymizedAt        DateTime?
+
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+  deletedAt           DateTime?
+
+  auditEvents         AuditEvent[]
 
   @@index([deletedAt])
   @@index([status])
-  @@index([plano])
+  @@index([trilha])
+  @@index([dataVencimento])
   @@map("aluno")
 }
 
+// =============================================================================
+// AuditEvent — registro de mudanças em Aluno. Ver ADR 0012.
+// =============================================================================
+model AuditEvent {
+  id        String      @id @default(uuid()) @db.Uuid
+  aluno     Aluno       @relation(fields: [alunoId], references: [id], onDelete: Cascade)
+  alunoId   String      @db.Uuid
+  admin     Admin?      @relation(fields: [adminId], references: [id], onDelete: SetNull)
+  adminId   String?     @db.Uuid
+  action    AuditAction
+  before    Json?
+  after     Json?
+  createdAt DateTime    @default(now())
+
+  @@index([alunoId, createdAt])
+  @@index([adminId])
+  @@map("audit_event")
+}
+
+// =============================================================================
+// Enums
+// =============================================================================
+
 enum Plano {
-  basic
-  premium
+  anual
 
   @@map("plano")
 }
@@ -60,4 +99,23 @@ enum StatusAluno {
   cancelado
 
   @@map("status_aluno")
+}
+
+enum Trilha {
+  saindo_da_divida
+  fazendo_sobrar_dinheiro
+  montando_reserva
+  construindo_patrimonio
+
+  @@map("trilha")
+}
+
+enum AuditAction {
+  create
+  update
+  delete
+  restore
+  anonymize
+
+  @@map("audit_action")
 }

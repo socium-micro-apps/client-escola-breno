@@ -1,9 +1,9 @@
 // DTOs de saída — camada entre o Prisma model e a resposta da API.
-// Garante que PII não vaza cru. Ver ADR 0006.
+// Garante que PII não vaza cru. Ver ADR 0006 + ADR 0012.
 
 import { formatTelefone } from '../validators/telefone.js';
 import { formatCpf, maskCpf } from '../validators/cpf.js';
-import type { Plano, StatusAluno } from '../schemas/aluno.js';
+import type { Plano, StatusAluno, Trilha } from '../schemas/aluno.js';
 
 /**
  * Formato mínimo de Aluno como vem do Prisma (subset relevante).
@@ -16,6 +16,11 @@ export interface AlunoRecord {
   telefone: string;
   plano: Plano;
   status: StatusAluno;
+  trilha: Trilha;
+  dataInicio: Date;
+  dataVencimento: Date;
+  renovacaoAutomatica: boolean;
+  anonymizedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;
@@ -34,17 +39,29 @@ export interface AlunoDTO {
   telefoneFormatado: string;
   plano: Plano;
   status: StatusAluno;
+  trilha: Trilha;
+  dataInicio: string;
+  dataVencimento: string;
+  renovacaoAutomatica: boolean;
+  diasParaVencimento: number; // negativo se vencido
+  anonimizado: boolean;
   createdAt: string;
   updatedAt: string;
+  deletedAt: string | null;
 }
 
 /**
  * DTO revelado — CPF e telefone formatados em claro.
- * Use APENAS quando o admin solicitar revelar (ação intencional).
+ * Use APENAS quando o admin solicitar revelar (ação intencional, ADR 0006).
  */
 export interface AlunoRevealedDTO extends AlunoDTO {
   cpf: string;
   cpfFormatado: string;
+}
+
+function daysBetween(a: Date, b: Date): number {
+  const MS_PER_DAY = 1000 * 60 * 60 * 24;
+  return Math.floor((a.getTime() - b.getTime()) / MS_PER_DAY);
 }
 
 /**
@@ -61,8 +78,15 @@ export function toAlunoDTO(record: AlunoRecord): AlunoDTO {
     telefoneFormatado: formatTelefone(record.telefone),
     plano: record.plano,
     status: record.status,
+    trilha: record.trilha,
+    dataInicio: record.dataInicio.toISOString(),
+    dataVencimento: record.dataVencimento.toISOString(),
+    renovacaoAutomatica: record.renovacaoAutomatica,
+    diasParaVencimento: daysBetween(record.dataVencimento, new Date()),
+    anonimizado: record.anonymizedAt !== null,
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
+    deletedAt: record.deletedAt ? record.deletedAt.toISOString() : null,
   };
 }
 
