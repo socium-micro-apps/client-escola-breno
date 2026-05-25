@@ -3,8 +3,12 @@ import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
-const ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL ?? 'admin@escolabreno.com.br';
-const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD ?? 'admin123';
+// Bootstrap do admin inicial.
+// Lógica: só cria se as duas envs estiverem definidas E não houver nenhum
+// super_admin no sistema ainda. Isso impede que o seed recrie um admin
+// default removido intencionalmente pela operação.
+const ADMIN_EMAIL = process.env.SEED_ADMIN_EMAIL;
+const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD;
 const BCRYPT_COST = 10;
 
 function plusDays(days: number, from: Date = new Date()): Date {
@@ -257,13 +261,24 @@ const sampleLgpdRequests = [
 async function main() {
   console.log('🌱 Seeding database...');
 
-  const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, BCRYPT_COST);
-  const admin = await prisma.admin.upsert({
-    where: { email: ADMIN_EMAIL },
-    update: { passwordHash, role: 'super_admin' },
-    create: { email: ADMIN_EMAIL, passwordHash, role: 'super_admin' },
-  });
-  console.log(`  ✓ Admin: ${admin.email} (${admin.role})`);
+  // Bootstrap idempotente: só cria admin inicial se ainda não houver nenhum
+  // super_admin no banco. Evita recriar admin default removido pela operação.
+  const superAdminCount = await prisma.admin.count({ where: { role: 'super_admin' } });
+  if (superAdminCount === 0) {
+    if (ADMIN_EMAIL && ADMIN_PASSWORD) {
+      const passwordHash = await bcrypt.hash(ADMIN_PASSWORD, BCRYPT_COST);
+      const admin = await prisma.admin.upsert({
+        where: { email: ADMIN_EMAIL },
+        update: { passwordHash, role: 'super_admin' },
+        create: { email: ADMIN_EMAIL, passwordHash, role: 'super_admin' },
+      });
+      console.log(`  ✓ Admin bootstrap criado: ${admin.email}`);
+    } else {
+      console.log('  ⚠ Sem super_admin e sem SEED_ADMIN_* — defina as envs ou crie via API');
+    }
+  } else {
+    console.log(`  ✓ ${superAdminCount} super_admin já existem, skip bootstrap`);
+  }
 
   for (const aluno of sampleAlunos) {
     const existing = await prisma.aluno.findUnique({ where: { cpf: aluno.cpf } });
