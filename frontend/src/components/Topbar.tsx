@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { LayoutDashboard, LogOut, Users } from 'lucide-react';
+import { LayoutDashboard, LogOut, ScrollText, ShieldCheck, Users } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { api } from '@/lib/api';
@@ -22,6 +22,8 @@ export function Topbar() {
   const navItems = [
     { to: '/dashboard', label: 'dashboard', icon: LayoutDashboard },
     { to: '/alunos', label: 'alunos', icon: Users },
+    { to: '/lgpd/requests', label: 'LGPD', icon: ShieldCheck },
+    { to: '/audit/login', label: 'auditoria', icon: ScrollText },
   ];
 
   return (

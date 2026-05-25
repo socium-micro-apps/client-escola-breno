@@ -3,6 +3,8 @@ import { Toaster } from 'sonner';
 import { AlunoDetailPage } from '@/pages/AlunoDetailPage';
 import { AlunosPage } from '@/pages/AlunosPage';
 import { DashboardPage } from '@/pages/DashboardPage';
+import { LgpdRequestsPage } from '@/pages/LgpdRequestsPage';
+import { LoginAuditPage } from '@/pages/LoginAuditPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { useAuth } from '@/lib/auth';
 
@@ -45,6 +47,22 @@ export function App() {
           element={
             <RequireAuth>
               <AlunoDetailPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/lgpd/requests"
+          element={
+            <RequireAuth>
+              <LgpdRequestsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/audit/login"
+          element={
+            <RequireAuth>
+              <LoginAuditPage />
             </RequireAuth>
           }
         />

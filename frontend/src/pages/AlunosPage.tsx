@@ -32,6 +32,10 @@ interface AlunoDTO {
   dataInicio: string;
   dataVencimento: string;
   renovacaoAutomatica: boolean;
+  valorAnualCentavos: number;
+  consentEmail: boolean;
+  consentWhatsapp: boolean;
+  consentOfertas: boolean;
   diasParaVencimento: number;
   anonimizado: boolean;
   createdAt: string;

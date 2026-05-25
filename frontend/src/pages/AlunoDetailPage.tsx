@@ -1,19 +1,30 @@
-import { TRILHA_LABEL, type Plano, type StatusAluno, type Trilha } from '@escola/shared';
+import {
+  CANAL_LABEL,
+  TRILHA_LABEL,
+  type CanalContato,
+  type Plano,
+  type StatusAluno,
+  type Trilha,
+} from '@escola/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArchiveRestore,
+  CheckCircle2,
   Download,
   History,
   Pencil,
+  PhoneCall,
   ShieldOff,
   Trash2,
   UserCircle,
+  XCircle,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { AlunoFormDialog } from '@/components/AlunoFormDialog';
 import { ConfirmDeleteDialog } from '@/components/ConfirmDeleteDialog';
+import { RegisterContactDialog } from '@/components/RegisterContactDialog';
 import { Topbar } from '@/components/Topbar';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -42,6 +53,16 @@ interface AlunoDetailDTO {
   dataInicio: string;
   dataVencimento: string;
   renovacaoAutomatica: boolean;
+  valorAnualCentavos: number;
+  valorAnualFormatado: string;
+  consentEmail: boolean;
+  consentWhatsapp: boolean;
+  consentOfertas: boolean;
+  termsAcceptedAt: string;
+  ultimoContatoEm: string | null;
+  ultimoContatoCanal: CanalContato | null;
+  ultimoContatoNota: string | null;
+  diasDesdeUltimoContato: number | null;
   diasParaVencimento: number;
   anonimizado: boolean;
   createdAt: string;
@@ -100,6 +121,7 @@ export function AlunoDetailPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [anonymizeOpen, setAnonymizeOpen] = useState(false);
+  const [contactOpen, setContactOpen] = useState(false);
 
   const detailQuery = useQuery<AlunoDetailDTO>({
     queryKey: ['alunos', id, 'detail'],
@@ -221,6 +243,12 @@ export function AlunoDetailPage() {
 
             <div className="flex flex-wrap items-center justify-end gap-2">
               {!isDeleted && !isAnonymized && (
+                <Button variant="primary" size="sm" onClick={() => setContactOpen(true)}>
+                  <PhoneCall className="h-4 w-4" />
+                  registrar contato
+                </Button>
+              )}
+              {!isDeleted && !isAnonymized && (
                 <Button variant="secondary" size="sm" onClick={() => setEditOpen(true)}>
                   <Pencil className="h-4 w-4" />
                   editar
@@ -307,7 +335,79 @@ export function AlunoDetailPage() {
                 {new Date(aluno.createdAt).toLocaleDateString('pt-BR')}
               </dd>
             </div>
+            <div>
+              <dt className="text-xs font-medium uppercase text-neutral-500">Valor anual</dt>
+              <dd className="mt-1 text-sm text-neutral-700">{aluno.valorAnualFormatado}</dd>
+            </div>
           </dl>
+        </div>
+
+        {/* Consent + último contato */}
+        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div className="rounded-lg border border-neutral-200 bg-white p-6">
+            <h2 className="mb-4 font-display text-lg font-semibold lowercase text-brand-deep">
+              consentimento (LGPD)
+            </h2>
+            <ul className="space-y-2 text-sm">
+              {[
+                { key: 'consentEmail', label: 'e-mail', value: aluno.consentEmail },
+                { key: 'consentWhatsapp', label: 'WhatsApp', value: aluno.consentWhatsapp },
+                { key: 'consentOfertas', label: 'ofertas', value: aluno.consentOfertas },
+              ].map((c) => (
+                <li key={c.key} className="flex items-center gap-2">
+                  {c.value ? (
+                    <CheckCircle2 className="h-4 w-4 text-success" />
+                  ) : (
+                    <XCircle className="h-4 w-4 text-neutral-400" />
+                  )}
+                  <span className={c.value ? 'text-neutral-700' : 'text-neutral-400'}>
+                    {c.label}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-4 text-xs text-neutral-500">
+              termos aceitos em {new Date(aluno.termsAcceptedAt).toLocaleDateString('pt-BR')}
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-neutral-200 bg-white p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="font-display text-lg font-semibold lowercase text-brand-deep">
+                último contato
+              </h2>
+              {!isDeleted && !isAnonymized && (
+                <Button variant="ghost" size="sm" onClick={() => setContactOpen(true)}>
+                  <PhoneCall className="h-3.5 w-3.5" />
+                  registrar
+                </Button>
+              )}
+            </div>
+            {aluno.ultimoContatoEm ? (
+              <div className="space-y-2">
+                <div className="flex items-baseline gap-2">
+                  <Badge variant="plano">
+                    {aluno.ultimoContatoCanal ? CANAL_LABEL[aluno.ultimoContatoCanal] : '—'}
+                  </Badge>
+                  <span className="text-sm text-neutral-700">
+                    {new Date(aluno.ultimoContatoEm).toLocaleDateString('pt-BR')}
+                  </span>
+                  <span
+                    className={`text-xs ${
+                      (aluno.diasDesdeUltimoContato ?? 0) > 60 ? 'text-warning' : 'text-neutral-500'
+                    }`}
+                  >
+                    (há {aluno.diasDesdeUltimoContato}d)
+                  </span>
+                </div>
+                {aluno.ultimoContatoNota && (
+                  <p className="text-sm text-neutral-700">{aluno.ultimoContatoNota}</p>
+                )}
+              </div>
+            ) : (
+              <div className="text-sm text-neutral-500">nunca contatado</div>
+            )}
+          </div>
         </div>
 
         {/* Timeline de auditoria */}
@@ -362,6 +462,12 @@ export function AlunoDetailPage() {
         open={editOpen}
         onOpenChange={setEditOpen}
         initial={aluno.cpf ? { ...aluno, cpf: aluno.cpf } : undefined}
+      />
+      <RegisterContactDialog
+        open={contactOpen}
+        onOpenChange={setContactOpen}
+        alunoId={aluno.id}
+        alunoNome={aluno.nome}
       />
       <ConfirmDeleteDialog
         open={deleteOpen}

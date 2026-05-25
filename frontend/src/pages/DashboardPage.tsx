@@ -1,9 +1,18 @@
 import { TRILHA_LABEL, type Trilha } from '@escola/shared';
 import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, CalendarClock, TrendingDown, TrendingUp, Users } from 'lucide-react';
+import {
+  AlertTriangle,
+  CalendarClock,
+  DollarSign,
+  PhoneOff,
+  ScrollText,
+  TrendingDown,
+  TrendingUp,
+  Users,
+  Wallet,
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Topbar } from '@/components/Topbar';
-import { Badge } from '@/components/ui/Badge';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -15,6 +24,8 @@ interface DashboardStats {
   vencidos: number;
   status: { ativo: number; pausado: number; cancelado: number };
   trilha: Record<Trilha, number>;
+  financeiro: { arrCentavos: number; mrrCentavos: number; ticketMedioCentavos: number };
+  atencao: { semContatoHa60d: number; lgpdAbertos: number; lgpdVencidos: number };
   geradoEm: string;
 }
 
@@ -24,6 +35,10 @@ const trilhaOrder: Trilha[] = [
   'montando_reserva',
   'construindo_patrimonio',
 ];
+
+function formatBRL(centavos: number): string {
+  return (centavos / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
 
 interface KpiCardProps {
   label: string;
@@ -55,26 +70,25 @@ function KpiCard({ label, value, hint, icon: Icon, emphasis = 'default', to }: K
         </span>
         <Icon className="h-4 w-4 text-neutral-400" />
       </div>
-      <div className="mt-2 font-display text-3xl font-bold text-brand-deep">{value}</div>
+      <div className="mt-2 font-display text-2xl font-bold text-brand-deep">{value}</div>
       {hint && <div className="mt-1 text-xs text-neutral-500">{hint}</div>}
     </div>
   );
 
-  return to ? (
-    <Link to={to}>{inner}</Link>
-  ) : (
-    inner
-  );
+  return to ? <Link to={to}>{inner}</Link> : inner;
 }
 
-interface BarProps {
+function Bar({
+  label,
+  count,
+  total,
+  color,
+}: {
   label: string;
   count: number;
   total: number;
   color: string;
-}
-
-function Bar({ label, count, total, color }: BarProps) {
+}) {
   const pct = total > 0 ? (count / total) * 100 : 0;
   return (
     <div>
@@ -83,10 +97,7 @@ function Bar({ label, count, total, color }: BarProps) {
         <span className="font-mono text-neutral-500">{count}</span>
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-neutral-100">
-        <div
-          className={cn('h-full rounded-full transition-all', color)}
-          style={{ width: `${pct}%` }}
-        />
+        <div className={cn('h-full rounded-full transition-all', color)} style={{ width: `${pct}%` }} />
       </div>
     </div>
   );
@@ -125,14 +136,34 @@ export function DashboardPage() {
 
         {stats && (
           <>
-            {/* KPIs principais */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            {/* Linha 1: KPIs de base + receita */}
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
               <KpiCard
                 label="Total ativos"
-                value={stats.total - stats.status.cancelado}
-                hint={`${stats.total} cadastros no total`}
+                value={stats.status.ativo}
+                hint={`${stats.total} no total`}
                 icon={Users}
                 to="/alunos?status=ativo"
+              />
+              <KpiCard
+                label="MRR"
+                value={formatBRL(stats.financeiro.mrrCentavos)}
+                hint="receita mensal recorrente"
+                icon={Wallet}
+                emphasis="positive"
+              />
+              <KpiCard
+                label="ARR"
+                value={formatBRL(stats.financeiro.arrCentavos)}
+                hint="receita anual"
+                icon={DollarSign}
+                emphasis="positive"
+              />
+              <KpiCard
+                label="Ticket médio"
+                value={formatBRL(stats.financeiro.ticketMedioCentavos)}
+                hint="por aluno ativo"
+                icon={DollarSign}
               />
               <KpiCard
                 label="Novos 30 dias"
@@ -141,15 +172,19 @@ export function DashboardPage() {
                 icon={TrendingUp}
                 emphasis="positive"
               />
+            </div>
+
+            {/* Linha 2: KPIs de alerta */}
+            <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
               <KpiCard
-                label="Cancelados 30 dias"
+                label="Cancelados 30d"
                 value={stats.canceladosUltimos30}
                 hint="churn no período"
                 icon={TrendingDown}
                 emphasis={stats.canceladosUltimos30 > 0 ? 'warning' : 'default'}
               />
               <KpiCard
-                label="Vencendo em 30 dias"
+                label="Vencendo 30d"
                 value={stats.vencendoProximos30}
                 hint="renovação próxima"
                 icon={CalendarClock}
@@ -157,12 +192,38 @@ export function DashboardPage() {
                 to="/alunos"
               />
               <KpiCard
-                label="Assinaturas vencidas"
+                label="Vencidos"
                 value={stats.vencidos}
                 hint="ação requerida"
                 icon={AlertTriangle}
                 emphasis={stats.vencidos > 0 ? 'danger' : 'default'}
                 to="/alunos"
+              />
+              <KpiCard
+                label="Sem contato 60d+"
+                value={stats.atencao.semContatoHa60d}
+                hint="alunos esquecidos"
+                icon={PhoneOff}
+                emphasis={stats.atencao.semContatoHa60d > 0 ? 'warning' : 'default'}
+                to="/alunos?status=ativo"
+              />
+              <KpiCard
+                label="LGPD abertos"
+                value={stats.atencao.lgpdAbertos}
+                hint={
+                  stats.atencao.lgpdVencidos > 0
+                    ? `${stats.atencao.lgpdVencidos} vencidos`
+                    : 'no prazo'
+                }
+                icon={ScrollText}
+                emphasis={
+                  stats.atencao.lgpdVencidos > 0
+                    ? 'danger'
+                    : stats.atencao.lgpdAbertos > 0
+                      ? 'warning'
+                      : 'default'
+                }
+                to="/lgpd/requests"
               />
             </div>
 

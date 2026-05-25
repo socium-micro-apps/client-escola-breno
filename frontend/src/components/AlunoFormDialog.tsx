@@ -41,6 +41,10 @@ interface AlunoFormDialogProps {
     dataInicio: string;
     dataVencimento: string;
     renovacaoAutomatica: boolean;
+    valorAnualCentavos: number;
+    consentEmail: boolean;
+    consentWhatsapp: boolean;
+    consentOfertas: boolean;
   };
 }
 
@@ -77,6 +81,10 @@ export function AlunoFormDialog({ open, onOpenChange, initial }: AlunoFormDialog
       status: 'ativo',
       trilha: 'saindo_da_divida',
       renovacaoAutomatica: true,
+      valorAnualCentavos: 29880,
+      consentEmail: true,
+      consentWhatsapp: true,
+      consentOfertas: false,
     },
   });
 
@@ -96,6 +104,10 @@ export function AlunoFormDialog({ open, onOpenChange, initial }: AlunoFormDialog
         dataVencimento:
           dateInputValue(initial?.dataVencimento) || nextYear.toISOString().slice(0, 10),
         renovacaoAutomatica: initial?.renovacaoAutomatica ?? true,
+        valorAnualCentavos: initial?.valorAnualCentavos ?? 29880,
+        consentEmail: initial?.consentEmail ?? true,
+        consentWhatsapp: initial?.consentWhatsapp ?? true,
+        consentOfertas: initial?.consentOfertas ?? false,
       });
     }
   }, [open, initial, reset]);
@@ -103,6 +115,10 @@ export function AlunoFormDialog({ open, onOpenChange, initial }: AlunoFormDialog
   const status = watch('status');
   const trilha = watch('trilha');
   const renovacaoAutomatica = watch('renovacaoAutomatica');
+  const valorAnualCentavos = watch('valorAnualCentavos') ?? 29880;
+  const consentEmail = watch('consentEmail');
+  const consentWhatsapp = watch('consentWhatsapp');
+  const consentOfertas = watch('consentOfertas');
 
   const mutation = useMutation({
     mutationFn: (data: FormInput) => {
@@ -238,21 +254,67 @@ export function AlunoFormDialog({ open, onOpenChange, initial }: AlunoFormDialog
             </div>
           </div>
 
-          <div className="flex items-center gap-2 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2">
-            <input
-              id="renovacaoAutomatica"
-              type="checkbox"
-              checked={renovacaoAutomatica}
-              onChange={(e) => setValue('renovacaoAutomatica', e.target.checked)}
-              className="h-4 w-4 cursor-pointer rounded border-neutral-300 text-brand-orange focus:ring-brand-orange"
-            />
-            <label
-              htmlFor="renovacaoAutomatica"
-              className="cursor-pointer text-sm text-neutral-700"
-            >
-              renovação automática
-            </label>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <Label htmlFor="valorAnual">Valor anual (centavos)</Label>
+              <Input
+                id="valorAnual"
+                type="number"
+                min="0"
+                step="100"
+                {...register('valorAnualCentavos', { valueAsNumber: true })}
+              />
+              <span className="text-xs text-neutral-500">
+                {(valorAnualCentavos / 100).toLocaleString('pt-BR', {
+                  style: 'currency',
+                  currency: 'BRL',
+                })}
+              </span>
+            </div>
+            <div className="flex items-end gap-2 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2">
+              <input
+                id="renovacaoAutomatica"
+                type="checkbox"
+                checked={renovacaoAutomatica}
+                onChange={(e) => setValue('renovacaoAutomatica', e.target.checked)}
+                className="h-4 w-4 cursor-pointer rounded border-neutral-300 text-brand-orange focus:ring-brand-orange"
+              />
+              <label
+                htmlFor="renovacaoAutomatica"
+                className="cursor-pointer text-sm text-neutral-700"
+              >
+                renovação automática
+              </label>
+            </div>
           </div>
+
+          <fieldset className="rounded-md border border-neutral-200 bg-neutral-50 p-3">
+            <legend className="px-1 text-xs font-medium uppercase tracking-wide text-neutral-600">
+              consentimentos LGPD
+            </legend>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {[
+                { key: 'consentEmail', label: 'e-mail', value: consentEmail },
+                { key: 'consentWhatsapp', label: 'WhatsApp', value: consentWhatsapp },
+                { key: 'consentOfertas', label: 'ofertas', value: consentOfertas },
+              ].map((c) => (
+                <label
+                  key={c.key}
+                  className="flex cursor-pointer items-center gap-2 text-sm text-neutral-700"
+                >
+                  <input
+                    type="checkbox"
+                    checked={c.value}
+                    onChange={(e) =>
+                      setValue(c.key as 'consentEmail' | 'consentWhatsapp' | 'consentOfertas', e.target.checked)
+                    }
+                    className="h-4 w-4 cursor-pointer rounded border-neutral-300 text-brand-orange focus:ring-brand-orange"
+                  />
+                  {c.label}
+                </label>
+              ))}
+            </div>
+          </fieldset>
 
           <DialogFooter className="pt-2">
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
