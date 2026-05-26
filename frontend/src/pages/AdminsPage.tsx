@@ -10,7 +10,7 @@ import {
 } from '@escola/shared';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Copy, Plus, Trash2, UserPlus } from 'lucide-react';
+import { Copy, Trash2, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { toast } from 'sonner';
@@ -202,15 +202,14 @@ export function AdminsPage() {
   const queryClient = useQueryClient();
   const [newInviteOpen, setNewInviteOpen] = useState(false);
   const [createdInvite, setCreatedInvite] = useState<InviteCreated | null>(null);
+  const isSuperAdmin = can('super_admin');
 
-  // Guarda: só super_admin acessa
-  if (!can('super_admin')) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
+  // Hooks declarados ANTES do guard — preserva ordem em todas as renderizações
+  // (regras dos Hooks). O enabled controla se a query/mutation chega no servidor.
   const query = useQuery<ListResponse>({
     queryKey: ['admins'],
     queryFn: () => api.get<ListResponse>('/admins'),
+    enabled: isSuperAdmin,
   });
 
   const updateRole = useMutation({
@@ -240,6 +239,11 @@ export function AdminsPage() {
     },
     onError: (err) => toast.error(err instanceof ApiError ? err.message : 'algo deu errado'),
   });
+
+  // Guard renderizado após todos os hooks
+  if (!isSuperAdmin) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   return (
     <div className="min-h-screen">

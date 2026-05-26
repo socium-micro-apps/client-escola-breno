@@ -22,7 +22,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { AlunoFormDialog } from '@/components/AlunoFormDialog';
 import { ConfirmDeleteDialog } from '@/components/ConfirmDeleteDialog';
@@ -133,7 +133,6 @@ function diffFields(
 
 export function AlunoDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
